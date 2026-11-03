@@ -4,11 +4,10 @@ import { Link } from 'react-router-dom';
 import { Award, Info } from 'lucide-react';
 import { CampaignTabs } from '../components/Layout';
 import { Card, PageHeader, PlatformTag, Select, StatusChip, fmt } from '../components/ui';
-import { weeklyMembers } from '../data/mock';
 import { useApp } from '../store/AppStore';
 
 export default function Analytics() {
-  const { results } = useApp();
+  const { results, weeklyMembers } = useApp();
   const [campaign, setCampaign] = useState('Fall Member Drive');
   const [range, setRange] = useState('Nov 1 – Nov 22');
   const isSample = results.some((r) => r.source === 'Sample');
@@ -23,7 +22,7 @@ export default function Analytics() {
     { stage: 'Members', value: sum('members'), tag: isSample ? 'Sample' : 'Attributed' },
   ];
   const best = results.reduce((a, b) => (b.members > a.members ? b : a), results[0]);
-  const maxWeek = Math.max(...weeklyMembers.map((w) => w.members));
+  const maxWeek = Math.max(1, ...weeklyMembers.map((w) => w.members));
 
   return (
     <>
@@ -62,7 +61,7 @@ export default function Analytics() {
         <Card title="From impression to member (all channels)" className="lg:col-span-3">
           <div className="space-y-3 p-5">
             {funnel.map((f, i) => {
-              const width = Math.max(6, Math.sqrt(f.value / funnel[0].value) * 100);
+              const width = Math.max(6, Math.sqrt(f.value / (funnel[0].value || 1)) * 100);
               const prev = funnel[i - 1];
               return (
                 <div key={f.stage} className="flex items-center gap-3">
