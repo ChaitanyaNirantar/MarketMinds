@@ -3,8 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, ArrowRight, Eye, HelpCircle, Lightbulb, Target, TrendingUp, X } from 'lucide-react';
 import { CampaignTabs } from '../components/Layout';
 import { Button, Card, PageHeader, StatusChip } from '../components/ui';
-import { pastRecommendations } from '../data/mock';
-import { nextCampaignGoal, useApp } from '../store/AppStore';
+import { useApp } from '../store/AppStore';
 
 const share = [
   { channel: 'Instagram', impressions: 63, members: 33 },
@@ -19,7 +18,7 @@ const blocks = [
 ];
 
 export default function Recommendation() {
-  const { setGoal, notify } = useApp();
+  const { notify, pastRecommendations, acceptRecommendation } = useApp();
   const navigate = useNavigate();
   const [askOpen, setAskOpen] = useState(false);
   const [plan, setPlan] = useState({ goal: '40 repeat members and 20 referrals by Dec 20', mix: 'Facebook 50%, Instagram 30%, LinkedIn 20%', experiment: 'Testimonials vs. promos' });
@@ -157,9 +156,10 @@ export default function Recommendation() {
           variant="primary"
           size="lg"
           onClick={() => {
-            setGoal({ ...nextCampaignGoal, text: `Get ${plan.goal} with a retention-and-referral campaign.` });
-            notify('Next campaign started from this recommendation');
-            navigate('/goals/new');
+            void acceptRecommendation(`Get ${plan.goal} with a retention-and-referral campaign.`).then(() => {
+              notify('Next campaign started from this recommendation');
+              navigate('/goals/new');
+            });
           }}
         >
           Accept and start next campaign <ArrowRight className="h-4 w-4" />

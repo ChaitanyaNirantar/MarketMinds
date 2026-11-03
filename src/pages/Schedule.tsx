@@ -45,13 +45,14 @@ export default function Schedule() {
                   size="sm"
                   variant="primary"
                   icon={<Plug className="h-3.5 w-3.5" />}
-                  onClick={() => {
+                  onClick={async () => {
                     setConnecting(p);
-                    setTimeout(() => {
-                      connect(p);
-                      setConnecting(null);
+                    try {
+                      await connect(p);
                       notify(`${p} connected`);
-                    }, 900);
+                    } finally {
+                      setConnecting(null);
+                    }
                   }}
                 >
                   {connecting === p ? 'Opening…' : 'Connect'}
@@ -190,7 +191,9 @@ export default function Schedule() {
           size="lg"
           icon={<CalendarCheck className="h-4 w-4" />}
           disabled={approvedPending.length === 0}
-          onClick={() => notify(`${scheduleApproved()} approved posts scheduled`)}
+          onClick={() => {
+            void scheduleApproved().then((n) => notify(`${n} approved posts scheduled`));
+          }}
         >
           Schedule approved ({approvedPending.length})
         </Button>

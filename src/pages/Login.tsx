@@ -18,7 +18,9 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const [touched, setTouched] = useState<Record<string, boolean>>({});
-  const { signIn } = useApp();
+  const [submitError, setSubmitError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const { signIn, signUp } = useApp();
   const navigate = useNavigate();
 
   const errors = {
@@ -27,12 +29,21 @@ export default function Login() {
     name: tab === 'signup' && !name ? 'Enter your business name.' : '',
   };
 
-  const submit = (e: FormEvent) => {
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     setTouched({ email: true, password: true, name: true });
     if (errors.email || errors.password || errors.name) return;
-    signIn();
-    navigate(tab === 'signup' ? '/business/new' : '/dashboard');
+    setBusy(true);
+    setSubmitError('');
+    try {
+      if (tab === 'signup') await signUp(email, password, name);
+      else await signIn(email, password);
+      navigate(tab === 'signup' ? '/business/new' : '/dashboard');
+    } catch (err) {
+      setSubmitError(err instanceof Error ? err.message : 'Could not sign in');
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -132,14 +143,29 @@ export default function Login() {
                 <input type="checkbox" defaultChecked className="h-4 w-4 rounded border-slate-300 text-brand-600" /> Keep me signed in
               </label>
             )}
-            <Button variant="primary" size="lg" type="submit" className="w-full">
-              {tab === 'login' ? 'Log in' : 'Create account'}
+            {submitError && <p className="text-sm text-rose-600">{submitError}</p>}
+            <Button variant="primary" size="lg" type="submit" className="w-full" disabled={busy}>
+              {busy ? 'Working…' : tab === 'login' ? 'Log in' : 'Create account'}
             </Button>
           </form>
+
+          {tab === 'login' && (
+            <button
+              type="button"
+              className="mt-3 w-full text-center text-sm font-medium text-brand-700 hover:underline"
+              onClick={() => {
+                setEmail('you@business.com');
+                setPassword('password123');
+              }}
+            >
+              Use demo account (you@business.com)
+            </button>
+          )}
 
           <div className="mt-4 text-center">
             <button className="text-sm text-slate-500 underline-offset-2 hover:text-slate-700 hover:underline">Forgot password?</button>
           </div>
+          <p className="mt-2 text-center text-xs text-slate-400">Local Django demo: you@business.com / password123</p>
           <p className="mt-10 text-center text-xs text-slate-400">
             By continuing you agree to the{' '}
             <a href="#" className="underline">Terms</a> and <a href="#" className="underline">Privacy Policy</a>.

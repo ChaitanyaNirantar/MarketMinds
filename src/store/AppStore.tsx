@@ -1,14 +1,25 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import * as mock from '../data/mock';
-import type { ChannelResult, ContentItem, ContentStatus, Platform, ScheduledPost, Source } from '../data/mock';
+import { api, getToken, setToken } from '../api';
+import type { ChannelResult, ContentItem, ContentStatus, Passage, Platform, Product, ScheduledPost, Source } from '../data/mock';
 
 export interface GoalDraft {
+  id?: string | null;
   text: string;
   outcome: string;
   target: number;
   deadline: string;
   budget: number;
   channels: Platform[];
+}
+
+export interface BusinessProfile {
+  name: string;
+  website: string;
+  industry: string;
+  location: string;
+  description: string;
+  audience: { who: string; radius: string; pains: string };
+  brandVoices: string[];
 }
 
 export const defaultGoal: GoalDraft = {
@@ -29,6 +40,16 @@ export const nextCampaignGoal: GoalDraft = {
   channels: ['Facebook', 'Instagram', 'LinkedIn'],
 };
 
+export const emptyBusiness: BusinessProfile = {
+  name: '',
+  website: '',
+  industry: '',
+  location: '',
+  description: '',
+  audience: { who: '', radius: '', pains: '' },
+  brandVoices: [],
+};
+
 type StrategyStatus = 'Draft' | 'Awaiting approval' | 'Approved';
 
 interface Toast {
@@ -36,36 +57,73 @@ interface Toast {
   message: string;
 }
 
+export interface Workspace {
+  user: { email: string };
+  business: BusinessProfile;
+  products: Product[];
+  sources: Source[];
+  passages: Passage[];
+  goal: GoalDraft;
+  previousGoals: { goal: string; result: string; status: string; id?: string }[];
+  strategyStatus: StrategyStatus;
+  campaigns: { name: string; members: number | null; status: string; to: string }[];
+  content: ContentItem[];
+  accounts: Record<Platform, boolean>;
+  posts: ScheduledPost[];
+  results: ChannelResult[];
+  websiteOutcomes: { visits: number; leads: number; source: string } | null;
+  weeklyMembers: { week: string; members: number }[];
+  pastRecommendations: { rec: string; decision: string; outcome: string }[];
+}
+
 interface AppState {
+  ready: boolean;
+  apiError: string | null;
   signedIn: boolean;
-  signIn: () => void;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, name: string) => Promise<void>;
   signOut: () => void;
 
+  business: BusinessProfile;
+  products: Product[];
+  saveBusiness: (payload: { business: BusinessProfile; products: Product[] }) => Promise<void>;
+
   goal: GoalDraft;
-  setGoal: (g: GoalDraft) => void;
+  setGoal: (g: GoalDraft) => Promise<void>;
+  previousGoals: Workspace['previousGoals'];
+  passages: Passage[];
+  weeklyMembers: Workspace['weeklyMembers'];
+  campaigns: Workspace['campaigns'];
+  pastRecommendations: Workspace['pastRecommendations'];
+  websiteOutcomes: Workspace['websiteOutcomes'];
 
   strategyStatus: StrategyStatus;
-  setStrategyStatus: (s: StrategyStatus) => void;
+  setStrategyStatus: (s: StrategyStatus) => Promise<void>;
+  generateStrategy: (g: GoalDraft) => Promise<void>;
 
   sources: Source[];
-  addSource: (name: string, type: Source['type']) => void;
-  removeSource: (id: string) => void;
-  retrySource: (id: string) => void;
+  addSource: (name: string, type: Source['type']) => Promise<void>;
+  removeSource: (id: string) => Promise<void>;
+  retrySource: (id: string) => Promise<void>;
+  searchKnowledge: (query: string) => Promise<Passage[]>;
 
   content: ContentItem[];
-  setContentStatus: (ids: string[], status: ContentStatus) => void;
-  updateCaption: (id: string, caption: string) => void;
+  setContentStatus: (ids: string[], status: ContentStatus) => Promise<void>;
+  updateCaption: (id: string, caption: string) => Promise<void>;
 
   accounts: Record<Platform, boolean>;
-  connect: (p: Platform) => void;
+  connect: (p: Platform) => Promise<void>;
 
   posts: ScheduledPost[];
-  retryPost: (id: string) => void;
-  movePost: (id: string, day: number) => void;
-  scheduleApproved: () => number;
+  retryPost: (id: string) => Promise<void>;
+  movePost: (id: string, day: number) => Promise<void>;
+  scheduleApproved: () => Promise<number>;
 
   results: ChannelResult[];
-  setResults: (r: ChannelResult[]) => void;
+  setResults: (r: ChannelResult[], extra?: { visits: number; leads: number; websiteSource: string }) => Promise<void>;
+  loadSampleResults: () => Promise<ChannelResult[]>;
+
+  acceptRecommendation: (text: string) => Promise<void>;
 
   toasts: Toast[];
   notify: (message: string) => void;
@@ -73,17 +131,27 @@ interface AppState {
 
 const Ctx = createContext<AppState | null>(null);
 
-const DAYS = ['Nov 2', 'Nov 3', 'Nov 4', 'Nov 5', 'Nov 6', 'Nov 7', 'Nov 8'];
+const emptyAccounts: Record<Platform, boolean> = { LinkedIn: false, Instagram: false, Facebook: false };
 
 export function AppStoreProvider({ children }: { children: ReactNode }) {
-  const [signedIn, setSignedIn] = useState(true);
-  const [goal, setGoal] = useState<GoalDraft>(defaultGoal);
-  const [strategyStatus, setStrategyStatus] = useState<StrategyStatus>('Awaiting approval');
-  const [sources, setSources] = useState<Source[]>(mock.sources);
-  const [content, setContent] = useState<ContentItem[]>(mock.contentItems);
-  const [accounts, setAccounts] = useState<Record<Platform, boolean>>({ LinkedIn: true, Instagram: true, Facebook: false });
-  const [posts, setPosts] = useState<ScheduledPost[]>(mock.scheduledPosts);
-  const [results, setResults] = useState<ChannelResult[]>(mock.channelResults);
+  const [ready, setReady] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [signedIn, setSignedIn] = useState(false);
+  const [goal, setGoalState] = useState<GoalDraft>(defaultGoal);
+  const [strategyStatus, setStrategyStatusState] = useState<StrategyStatus>('Draft');
+  const [sources, setSources] = useState<Source[]>([]);
+  const [content, setContent] = useState<ContentItem[]>([]);
+  const [accounts, setAccounts] = useState<Record<Platform, boolean>>(emptyAccounts);
+  const [posts, setPosts] = useState<ScheduledPost[]>([]);
+  const [results, setResultsState] = useState<ChannelResult[]>([]);
+  const [business, setBusiness] = useState<BusinessProfile>(emptyBusiness);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [previousGoals, setPreviousGoals] = useState<Workspace['previousGoals']>([]);
+  const [passages, setPassages] = useState<Passage[]>([]);
+  const [weeklyMembers, setWeeklyMembers] = useState<Workspace['weeklyMembers']>([]);
+  const [campaigns, setCampaigns] = useState<Workspace['campaigns']>([]);
+  const [pastRecommendations, setPastRecommendations] = useState<Workspace['pastRecommendations']>([]);
+  const [websiteOutcomes, setWebsiteOutcomes] = useState<Workspace['websiteOutcomes']>(null);
   const [toasts, setToasts] = useState<Toast[]>([]);
   const toastId = useRef(0);
 
@@ -93,69 +161,201 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3200);
   }, []);
 
-  // Simulates parse -> chunk -> embed progress for any source in Processing state.
+  const apply = useCallback((ws: Workspace) => {
+    setBusiness(ws.business);
+    setProducts(ws.products);
+    setSources(ws.sources);
+    setPassages(ws.passages);
+    setGoalState({ ...defaultGoal, ...ws.goal, deadline: ws.goal.deadline || defaultGoal.deadline });
+    setPreviousGoals(ws.previousGoals);
+    setStrategyStatusState(ws.strategyStatus);
+    setCampaigns(ws.campaigns);
+    setContent(ws.content);
+    setAccounts({ ...emptyAccounts, ...ws.accounts });
+    setPosts(ws.posts);
+    setResultsState(ws.results);
+    setWebsiteOutcomes(ws.websiteOutcomes);
+    setWeeklyMembers(ws.weeklyMembers);
+    setPastRecommendations(ws.pastRecommendations);
+    setApiError(null);
+  }, []);
+
+  const refresh = useCallback(async () => {
+    const ws = await api<Workspace>('/workspace');
+    apply(ws);
+    return ws;
+  }, [apply]);
+
   useEffect(() => {
-    if (!sources.some((s) => s.status === 'Processing')) return;
+    (async () => {
+      if (!getToken()) {
+        setReady(true);
+        return;
+      }
+      try {
+        await refresh();
+        setSignedIn(true);
+      } catch (err) {
+        setToken(null);
+        setSignedIn(false);
+        setApiError(err instanceof Error ? err.message : 'Could not load workspace');
+      } finally {
+        setReady(true);
+      }
+    })();
+  }, [refresh]);
+
+  useEffect(() => {
+    if (!signedIn || !sources.some((s) => s.status === 'Processing')) return;
     const timer = setInterval(() => {
-      setSources((prev) =>
-        prev.map((s) => {
-          if (s.status !== 'Processing') return s;
-          const progress = Math.min(100, (s.progress ?? 0) + 4);
-          if (progress >= 100) return { ...s, status: 'Indexed', progress: undefined, chunks: 12 + (s.name.length % 20) };
-          return { ...s, progress };
-        }),
-      );
-    }, 400);
+      refresh().catch(() => undefined);
+    }, 800);
     return () => clearInterval(timer);
-  }, [sources]);
+  }, [signedIn, sources, refresh]);
+
+  const run = useCallback(
+    async (fn: () => Promise<Workspace | (Workspace & { added?: number }) | void>) => {
+      try {
+        const ws = await fn();
+        if (ws && 'sources' in ws) apply(ws as Workspace);
+        setApiError(null);
+        return ws;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Request failed';
+        setApiError(message);
+        throw err;
+      }
+    },
+    [apply],
+  );
 
   const value = useMemo<AppState>(
     () => ({
+      ready,
+      apiError,
       signedIn,
-      signIn: () => setSignedIn(true),
-      signOut: () => setSignedIn(false),
+      signIn: async (email, password) => {
+        const res = await api<{ token: string; workspace: Workspace }>('/auth/login', { body: { email, password } });
+        setToken(res.token);
+        apply(res.workspace);
+        setSignedIn(true);
+      },
+      signUp: async (email, password, name) => {
+        const res = await api<{ token: string; workspace: Workspace }>('/auth/signup', { body: { email, password, name } });
+        setToken(res.token);
+        apply(res.workspace);
+        setSignedIn(true);
+      },
+      signOut: () => {
+        setToken(null);
+        setSignedIn(false);
+      },
+      business,
+      products,
+      saveBusiness: async (payload) => {
+        await run(() =>
+          api('/business', {
+            method: 'PUT',
+            body: { ...payload.business, products: payload.products },
+          }),
+        );
+      },
       goal,
-      setGoal,
+      setGoal: async (g) => {
+        setGoalState(g);
+        await run(() => api('/goals', { method: 'PUT', body: g }));
+      },
+      previousGoals,
+      passages,
+      weeklyMembers,
+      campaigns,
+      pastRecommendations,
+      websiteOutcomes,
       strategyStatus,
-      setStrategyStatus,
+      setStrategyStatus: async (s) => {
+        if (s === 'Approved') await run(() => api('/goals/approve-strategy', { method: 'POST', body: {} }));
+        else setStrategyStatusState(s);
+      },
+      generateStrategy: async (g) => {
+        await run(() => api('/goals/generate-strategy', { body: g }));
+      },
       sources,
-      addSource: (name, type) =>
-        setSources((s) => [...s, { id: `s${Date.now()}`, name, type, status: 'Processing', chunks: null, progress: 0 }]),
-      removeSource: (id) => setSources((s) => s.filter((x) => x.id !== id)),
-      retrySource: (id) =>
-        setSources((s) => s.map((x) => (x.id === id ? { ...x, status: 'Processing', progress: 0, error: undefined } : x))),
+      addSource: async (name, type) => {
+        await api('/sources', { body: { name, type } });
+        await refresh();
+      },
+      removeSource: async (id) => {
+        await run(() => api(`/sources/${id}`, { method: 'DELETE' }));
+      },
+      retrySource: async (id) => {
+        await run(() => api(`/sources/${id}/retry`, { method: 'POST', body: {} }));
+      },
+      searchKnowledge: (query) => api<Passage[]>('/knowledge/search', { body: { query } }),
       content,
-      setContentStatus: (ids, status) => setContent((c) => c.map((x) => (ids.includes(x.id) ? { ...x, status } : x))),
-      updateCaption: (id, caption) =>
-        setContent((c) => c.map((x) => (x.id === id ? { ...x, caption, status: 'Edited' } : x))),
+      setContentStatus: async (ids, status) => {
+        await run(() => api('/content/bulk-status', { body: { ids, status } }));
+      },
+      updateCaption: async (id, caption) => {
+        await run(() => api(`/content/${id}`, { method: 'PATCH', body: { caption } }));
+      },
       accounts,
-      connect: (p) => setAccounts((a) => ({ ...a, [p]: true })),
+      connect: async (p) => {
+        await run(() => api(`/accounts/${p}/connect`, { method: 'POST', body: {} }));
+      },
       posts,
-      retryPost: (id) => setPosts((p) => p.map((x) => (x.id === id ? { ...x, status: 'Scheduled', error: undefined } : x))),
-      movePost: (id, day) => setPosts((p) => p.map((x) => (x.id === id ? { ...x, day, date: DAYS[day] } : x))),
-      scheduleApproved: () => {
-        const scheduledTitles = new Set(posts.map((p) => p.title));
-        const toAdd = content.filter((c) => c.status === 'Approved' && !scheduledTitles.has(c.topic));
-        setPosts((p) => [
-          ...p,
-          ...toAdd.map((c, i) => ({
-            id: `sp-${c.id}`,
-            title: c.topic,
-            platform: (c.platform === 'All' ? 'Instagram' : c.platform) as Platform,
-            day: 6 - (i % 2),
-            time: i % 2 ? '12:00 PM' : '5:30 PM',
-            date: DAYS[6 - (i % 2)],
-            status: 'Scheduled' as const,
-          })),
-        ]);
-        return toAdd.length;
+      retryPost: async (id) => {
+        await run(() => api(`/posts/${id}/retry`, { method: 'POST', body: {} }));
+      },
+      movePost: async (id, day) => {
+        await run(() => api(`/posts/${id}/move`, { method: 'POST', body: { day } }));
+      },
+      scheduleApproved: async () => {
+        const ws = (await run(() => api<Workspace & { added?: number }>('/schedule/approved', { method: 'POST', body: {} }))) as
+          | (Workspace & { added?: number })
+          | void;
+        return ws?.added ?? 0;
       },
       results,
-      setResults,
+      setResults: async (r, extra) => {
+        await run(() =>
+          api('/results', {
+            method: 'PUT',
+            body: { rows: r, visits: extra?.visits, leads: extra?.leads, websiteSource: extra?.websiteSource },
+          }),
+        );
+      },
+      loadSampleResults: () => api<ChannelResult[]>('/results/sample'),
+      acceptRecommendation: async (text) => {
+        await run(() => api('/recommendation/accept', { body: { text } }));
+      },
       toasts,
       notify,
     }),
-    [signedIn, goal, strategyStatus, sources, content, accounts, posts, results, toasts, notify],
+    [
+      ready,
+      apiError,
+      signedIn,
+      business,
+      products,
+      goal,
+      previousGoals,
+      passages,
+      weeklyMembers,
+      campaigns,
+      pastRecommendations,
+      websiteOutcomes,
+      strategyStatus,
+      sources,
+      content,
+      accounts,
+      posts,
+      results,
+      toasts,
+      notify,
+      apply,
+      run,
+      refresh,
+    ],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

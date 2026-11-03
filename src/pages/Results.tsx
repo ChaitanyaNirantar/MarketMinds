@@ -4,20 +4,20 @@ import { useNavigate } from 'react-router-dom';
 import { FileUp, FlaskConical, Keyboard } from 'lucide-react';
 import { CampaignTabs } from '../components/Layout';
 import { Button, Card, Field, PageHeader, PlatformTag, Select, StatusChip } from '../components/ui';
-import { channelResults, sampleResults, type ChannelResult, type ResultSource } from '../data/mock';
+import { type ChannelResult, type ResultSource } from '../data/mock';
 import { useApp } from '../store/AppStore';
 
 type Method = 'import' | 'type' | 'sample';
 const numericCols = ['impressions', 'clicks', 'leads', 'members'] as const;
 
 export default function Results() {
-  const { results, setResults, notify } = useApp();
+  const { results, setResults, notify, loadSampleResults, websiteOutcomes } = useApp();
   const [campaign, setCampaign] = useState('Fall Member Drive');
   const [method, setMethod] = useState<Method>('import');
   const [rows, setRows] = useState<ChannelResult[]>(results);
-  const [visits, setVisits] = useState(540);
-  const [leads, setLeads] = useState(118);
-  const [webSource, setWebSource] = useState<ResultSource | ''>('Imported');
+  const [visits, setVisits] = useState(websiteOutcomes?.visits ?? 540);
+  const [leads, setLeads] = useState(websiteOutcomes?.leads ?? 118);
+  const [webSource, setWebSource] = useState<ResultSource | ''>((websiteOutcomes?.source as ResultSource) || 'Imported');
   const [touched, setTouched] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
@@ -25,8 +25,10 @@ export default function Results() {
   const choose = (m: Method) => {
     setMethod(m);
     if (m === 'sample') {
-      setRows(sampleResults);
-      setWebSource('Sample');
+      void loadSampleResults().then((sample) => {
+        setRows(sample);
+        setWebSource('Sample');
+      });
     } else if (m === 'import') {
       fileRef.current?.click();
     }
@@ -54,7 +56,6 @@ export default function Results() {
         accept=".csv"
         className="hidden"
         onChange={() => {
-          setRows(channelResults);
           setWebSource('Imported');
           notify('CSV imported: 3 channel rows');
         }}
@@ -156,9 +157,10 @@ export default function Results() {
           onClick={() => {
             setTouched(true);
             if (!webSource) return;
-            setResults(rows);
-            notify('Results saved');
-            navigate('/campaigns/7/analytics');
+            void setResults(rows, { visits, leads, websiteSource: webSource }).then(() => {
+              notify('Results saved');
+              navigate('/campaigns/7/analytics');
+            });
           }}
         >
           Save results

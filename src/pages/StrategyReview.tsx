@@ -32,9 +32,10 @@ export default function StrategyReview() {
   const navigate = useNavigate();
 
   const approve = () => {
-    setStrategyStatus('Approved');
-    notify('Strategy approved — campaign plan created');
-    setTimeout(() => navigate('/campaigns/7'), 500);
+    void setStrategyStatus('Approved').then(() => {
+      notify('Strategy approved — campaign plan created');
+      navigate('/campaigns/7');
+    });
   };
 
   return (

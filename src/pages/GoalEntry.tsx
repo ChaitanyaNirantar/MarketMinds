@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BookOpen, Loader2, Package, History, Sparkles } from 'lucide-react';
 import { Button, Card, Field, PageHeader, PlatformTag, StatusChip } from '../components/ui';
-import { goalExamples, PLATFORMS, previousGoals, products, type Platform } from '../data/mock';
+import { goalExamples, PLATFORMS, type Platform } from '../data/mock';
 import { useApp, type GoalDraft } from '../store/AppStore';
 
 const outcomes = ['Memberships', 'Class bookings', 'Trial signups', 'Email subscribers', 'Repeat members', 'Program awareness'];
@@ -35,7 +35,7 @@ function interpret(text: string, prev: GoalDraft): GoalDraft {
 }
 
 export default function GoalEntry() {
-  const { goal, setGoal, sources, notify } = useApp();
+  const { goal, setGoal, sources, notify, products, previousGoals, generateStrategy } = useApp();
   const [draft, setDraft] = useState<GoalDraft>(goal);
   const [generating, setGenerating] = useState(false);
   const navigate = useNavigate();
@@ -46,10 +46,14 @@ export default function GoalEntry() {
   const toggle = (p: Platform) =>
     setDraft((d) => ({ ...d, channels: d.channels.includes(p) ? d.channels.filter((c) => c !== p) : [...d.channels, p] }));
 
-  const generate = () => {
-    setGoal(draft);
+  const generate = async () => {
     setGenerating(true);
-    setTimeout(() => navigate('/goals/12/strategy'), 1100);
+    try {
+      await generateStrategy(draft);
+      navigate('/goals/12/strategy');
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const indexed = sources.length;
@@ -134,8 +138,7 @@ export default function GoalEntry() {
           <div className="flex gap-2">
             <Button
               onClick={() => {
-                setGoal(draft);
-                notify('Draft saved');
+                void setGoal(draft).then(() => notify('Draft saved'));
               }}
             >
               Save draft

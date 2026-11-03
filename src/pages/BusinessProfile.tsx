@@ -3,25 +3,21 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, CheckCircle2, Plus, Trash2 } from 'lucide-react';
 import { Button, Card, Chip, Field, PageHeader } from '../components/ui';
-import { brandVoices, business, industries, products as initialProducts, type Product } from '../data/mock';
+import { brandVoices, industries, type Product } from '../data/mock';
 import { useApp } from '../store/AppStore';
 
 const steps = ['Business', 'Products', 'Audience', 'Brand voice'];
 
 export default function BusinessProfile() {
+  const { notify, business, products, saveBusiness } = useApp();
   const [step, setStep] = useState(0);
   const [maxStep, setMaxStep] = useState(0);
-  const [form, setForm] = useState({ ...business });
+  const [form, setForm] = useState({ name: business.name, website: business.website, industry: business.industry, location: business.location, description: business.description });
   const [touched, setTouched] = useState<Record<string, boolean>>({});
-  const [items, setItems] = useState<Product[]>(initialProducts);
-  const [voices, setVoices] = useState<string[]>(['Friendly', 'Inspirational']);
-  const [audience, setAudience] = useState({
-    who: 'Beginners aged 22-40 who want coached, low-pressure workouts',
-    radius: '5 miles',
-    pains: 'Intimidated by big gyms; unsure how to start lifting safely',
-  });
+  const [items, setItems] = useState<Product[]>(products);
+  const [voices, setVoices] = useState<string[]>(business.brandVoices.length ? business.brandVoices : ['Friendly', 'Inspirational']);
+  const [audience, setAudience] = useState(business.audience);
   const navigate = useNavigate();
-  const { notify } = useApp();
 
   const errors: Record<string, string> = {
     name: form.name.trim() ? '' : 'Business name is required.',
@@ -36,8 +32,13 @@ export default function BusinessProfile() {
       if (Object.values(errors).some(Boolean)) return;
     }
     if (step === steps.length - 1) {
-      notify('Business profile saved');
-      navigate('/knowledge');
+      void saveBusiness({
+        business: { ...business, ...form, audience, brandVoices: voices },
+        products: items,
+      }).then(() => {
+        notify('Business profile saved');
+        navigate('/knowledge');
+      });
       return;
     }
     setStep(step + 1);

@@ -2,17 +2,17 @@ import clsx from 'clsx';
 import { useRef, useState, type DragEvent } from 'react';
 import { AlertTriangle, FileText, Globe, Search, UploadCloud } from 'lucide-react';
 import { Button, Card, PageHeader, ProgressBar, SourceTag, StatusChip } from '../components/ui';
-import { retrievalCorpus, type Passage, type SourceType } from '../data/mock';
+import { type Passage, type SourceType } from '../data/mock';
 import { useApp } from '../store/AppStore';
 
 const typeFromName = (n: string): SourceType => (n.endsWith('.pdf') ? 'PDF' : n.endsWith('.docx') ? 'DOCX' : 'TXT');
 
 export default function KnowledgeBase() {
-  const { sources, addSource, removeSource, retrySource, notify } = useApp();
+  const { sources, addSource, removeSource, retrySource, notify, passages, searchKnowledge } = useApp();
   const [dragging, setDragging] = useState(false);
   const [url, setUrl] = useState('');
   const [query, setQuery] = useState('What classes do we offer for beginners?');
-  const [results, setResults] = useState<Passage[]>(retrievalCorpus.slice(0, 2));
+  const [results, setResults] = useState<Passage[]>(passages.slice(0, 2));
   const fileInput = useRef<HTMLInputElement>(null);
 
   const onDrop = (e: DragEvent) => {
@@ -21,11 +21,8 @@ export default function KnowledgeBase() {
     Array.from(e.dataTransfer.files).forEach((f) => addSource(f.name, typeFromName(f.name)));
   };
 
-  const search = () => {
-    const words = query.toLowerCase().split(/\W+/).filter((w) => w.length > 3);
-    const scored = retrievalCorpus
-      .map((p) => ({ ...p, hits: words.filter((w) => p.text.toLowerCase().includes(w)).length }))
-      .sort((a, b) => b.hits - a.hits || b.score - a.score);
+  const search = async () => {
+    const scored = await searchKnowledge(query);
     setResults(scored.slice(0, 3));
   };
 
