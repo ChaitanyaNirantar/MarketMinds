@@ -4,3 +4,9 @@ dist
 .vite
 .DS_Store
 screenshots-out
+backend/.venv
+backend/db.sqlite3
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/

@@ -5,6 +5,7 @@ import { Loader2, Pencil, Sparkles, Target } from 'lucide-react';
 import { CampaignTabs } from '../components/Layout';
 import { Button, Card, PageHeader, PlatformTag, Select, StatusChip } from '../components/ui';
 import { phases } from '../data/mock';
+import { api } from '../api';
 import { useApp } from '../store/AppStore';
 
 const metrics = [
@@ -148,9 +149,14 @@ export default function CampaignPlan() {
           variant="primary"
           size="lg"
           icon={generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-          onClick={() => {
+          onClick={async () => {
             setGenerating(true);
-            setTimeout(() => navigate('/campaigns/7/content'), 1000);
+            try {
+              await api('/campaigns/generate-content', { method: 'POST', body: {} });
+              navigate('/campaigns/7/content');
+            } finally {
+              setGenerating(false);
+            }
           }}
         >
           {generating ? 'Content Agent is drafting…' : 'Generate content'}

@@ -2,19 +2,18 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowUpRight, ChevronRight, Lightbulb, Plus, TrendingUp } from 'lucide-react';
 import { Button, Card, PageHeader, PlatformTag, Select, StatusChip, fmt } from '../components/ui';
-import { activeCampaigns } from '../data/mock';
 import { useApp } from '../store/AppStore';
 
 export default function Dashboard() {
-  const { results } = useApp();
+  const { results, campaigns, goal, business } = useApp();
   const [range, setRange] = useState('Last 30 days');
   const navigate = useNavigate();
   const members = results.reduce((s, r) => s + r.members, 0);
   const impressions = results.reduce((s, r) => s + r.impressions, 0);
-  const target = 100;
+  const target = goal.target || 100;
   const pct = Math.round((members / target) * 100);
   const byChannel = [...results].sort((a, b) => b.members - a.members);
-  const maxMembers = Math.max(...byChannel.map((c) => c.members));
+  const maxMembers = Math.max(1, ...byChannel.map((c) => c.members));
   const expectedByNow = Math.round((18 / 30) * target);
 
   const kpis = [
@@ -25,13 +24,13 @@ export default function Dashboard() {
 
   return (
     <>
-      <PageHeader title="Dashboard" subtitle="Iron Peak Fitness · outcomes first" right={<Select value={range} onChange={setRange} options={['Last 30 days', 'Last 7 days', 'This quarter']} />} />
+      <PageHeader title="Dashboard" subtitle={`${business.name || 'Your business'} · outcomes first`} right={<Select value={range} onChange={setRange} options={['Last 30 days', 'Last 7 days', 'This quarter']} />} />
 
       <section className="mb-5 overflow-hidden rounded-2xl bg-gradient-to-br from-brand-700 to-violet-700 p-6 text-white shadow-lg">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <div className="text-xs font-semibold uppercase tracking-wider text-brand-200">Goal</div>
-            <h2 className="mt-1 text-xl font-semibold">100 new memberships by Nov 25</h2>
+            <h2 className="mt-1 text-xl font-semibold">{goal.target} new {goal.outcome.toLowerCase()} by {goal.deadline ? new Date(goal.deadline + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : '—'}</h2>
           </div>
           <Button className="border-white/30 bg-white/10 text-white hover:bg-white/20" icon={<Plus className="h-4 w-4" />} onClick={() => navigate('/goals/new')}>
             New goal
@@ -79,7 +78,7 @@ export default function Dashboard() {
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {activeCampaigns.map((c) => (
+              {campaigns.map((c) => (
                 <tr key={c.name} className="cursor-pointer hover:bg-slate-50" onClick={() => navigate(c.to)}>
                   <td className="td font-medium text-slate-900">{c.name}</td>
                   <td className="td text-right tabular-nums">{c.members ?? '–'}</td>

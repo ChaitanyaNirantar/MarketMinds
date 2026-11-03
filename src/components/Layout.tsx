@@ -14,7 +14,6 @@ import {
   Megaphone,
 } from 'lucide-react';
 import { useApp } from '../store/AppStore';
-import { business } from '../data/mock';
 
 const nav = [
   { label: 'Dashboard', to: '/dashboard', icon: LayoutDashboard, match: (p: string) => p.startsWith('/dashboard') },
@@ -49,19 +48,30 @@ export function Logo({ className }: { className?: string }) {
 
 export default function Layout() {
   const { pathname } = useLocation();
-  const { toasts, signOut } = useApp();
+  const { toasts, signOut, business, apiError } = useApp();
   const navigate = useNavigate();
+  const initials = (business.name || 'MM')
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase();
 
   return (
     <div className="flex min-h-screen flex-col">
+      {apiError && (
+        <div className="bg-rose-600 px-4 py-2 text-center text-sm text-white">
+          {apiError}
+        </div>
+      )}
       <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white/90 px-5 backdrop-blur">
         <Link to="/dashboard">
           <Logo />
         </Link>
         <div className="flex items-center gap-2">
           <button className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
-            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-slate-900 text-[10px] font-bold text-white">IP</span>
-            {business.name}
+            <span className="flex h-6 w-6 items-center justify-center rounded-md bg-slate-900 text-[10px] font-bold text-white">{initials || 'MM'}</span>
+            {business.name || 'Your business'}
             <ChevronDown className="h-4 w-4 text-slate-400" />
           </button>
           <button className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100">
