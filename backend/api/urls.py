@@ -1,6 +1,6 @@
 from django.urls import path
 
-from . import views
+from . import social_views, views
 
 urlpatterns = [
     path("health", views.health),
@@ -19,12 +19,22 @@ urlpatterns = [
     path("campaigns/generate-content", views.generate_content),
     path("content/bulk-status", views.bulk_content_status),
     path("content/<str:content_id>", views.update_content),
+    path("content/<str:content_id>/media", social_views.content_media),
     path("accounts/<str:platform>/connect", views.connect_account),
+    path("accounts/<str:platform>/authorize", social_views.authorize),
+    path("accounts/<str:platform>/targets", social_views.list_targets),
+    path("accounts/<str:platform>/select", social_views.select_target),
+    path("accounts/<str:platform>/disconnect", social_views.disconnect),
+    path("oauth/<str:platform>/callback", social_views.oauth_callback),
+    path("meta/deauthorize", social_views.meta_deauthorize),
+    path("meta/data-deletion", social_views.meta_data_deletion),
     path("posts/<str:post_id>/retry", views.retry_post),
+    path("posts/<str:post_id>/publish-now", social_views.publish_now),
     path("posts/<str:post_id>/move", views.move_post),
     path("schedule/approved", views.schedule_approved),
     path("results/sample", views.sample_results),
     path("results", views.save_results),
+    path("results/sync", social_views.sync_results),
     path("recommendation/accept", views.accept_recommendation),
     path("recommendation/dismiss", views.dismiss_recommendation),
 ]

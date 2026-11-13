@@ -199,6 +199,15 @@ def seed_demo(reset=True):
         ScheduledPost(business=business, public_id="sp6", title="Member story: Dana", platform="Instagram", day=5, time="9:00 AM", date="Nov 7", status="Scheduled"),
     ])
 
+    # Link each demo post to its content and give it a real timestamp.
+    from .social import scheduled_at_for
+
+    by_topic = {c.topic: c for c in campaign.content.all()}
+    for post in business.posts.all():
+        post.content = by_topic.get(post.title)
+        post.scheduled_at = scheduled_at_for(post.day, post.time)
+        post.save(update_fields=["content", "scheduled_at"])
+
     ChannelResult.objects.bulk_create([
         ChannelResult(campaign=campaign, channel="Instagram", impressions=11400, clicks=310, leads=41, members=22, source="Imported"),
         ChannelResult(campaign=campaign, channel="Facebook", impressions=5200, clicks=340, leads=58, members=34, source="Imported"),

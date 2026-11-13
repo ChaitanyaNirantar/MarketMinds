@@ -3,6 +3,7 @@ import time
 from datetime import date
 
 from django.contrib.auth import authenticate, get_user_model
+from django.utils import timezone
 from rest_framework.authtoken.models import Token
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny, IsAuthenticated
@@ -19,11 +20,12 @@ from .models import (
     SocialAccount,
     Strategy,
 )
+from .integrations.registry import PLATFORMS, live_provider, normalize_platform
 from .payload import SAMPLE_RESULTS, current_campaign, source_json, workspace_json
 from .seed import seed_demo
+from .social import DAYS, is_live, scheduled_at_for
 
 User = get_user_model()
-DAYS = ["Nov 2", "Nov 3", "Nov 4", "Nov 5", "Nov 6", "Nov 7", "Nov 8"]
 
 
 def business_of(request) -> Business:
@@ -72,8 +74,8 @@ def signup(request):
         return Response({"detail": "An account with that email already exists."}, status=400)
     user = User.objects.create_user(username=email, email=email, password=password)
     Business.objects.create(user=user, name=name)
-    for platform, connected in (("LinkedIn", False), ("Instagram", False), ("Facebook", False)):
-        SocialAccount.objects.create(business=user.business, platform=platform, connected=connected)
+    for platform in PLATFORMS:
+        SocialAccount.objects.create(business=user.business, platform=platform, connected=False)
     token = Token.objects.create(user=user)
     return Response({"token": token.key, "email": email, "workspace": workspace_json(user.business)}, status=201)
 
@@ -306,9 +308,16 @@ def update_content(request, content_id):
 @api_view(["POST"])
 @permission_classes([IsAuthenticated])
 def connect_account(request, platform):
+    """Demo connection: marks the account connected without a real platform behind it."""
     b = business_of(request)
+    platform = normalize_platform(platform)
+    if not platform:
+        return Response({"detail": "Unknown platform."}, status=404)
+    if live_provider(platform):
+        return Response({"detail": f"{platform} uses real sign-in on this server. Use Connect to sign in."}, status=400)
     account, _ = SocialAccount.objects.get_or_create(business=b, platform=platform)
     account.connected = True
+    account.is_live = False
     account.save()
     return ok_workspace(b)
 
@@ -325,6 +334,9 @@ def retry_post(request, post_id):
         return Response({"detail": f"Reconnect {post.platform} first."}, status=400)
     post.status = "Scheduled"
     post.error = ""
+    if is_live(account):
+        # Retrying a real post means "publish it on the next scheduler run".
+        post.scheduled_at = timezone.now()
     post.save()
     return ok_workspace(b)
 
@@ -339,6 +351,7 @@ def move_post(request, post_id):
     day = int(request.data.get("day", post.day))
     post.day = max(0, min(6, day))
     post.date = DAYS[post.day]
+    post.scheduled_at = scheduled_at_for(post.day, post.time)
     post.save()
     return ok_workspace(b)
 
@@ -350,19 +363,26 @@ def schedule_approved(request):
     campaign = current_campaign(b)
     if not campaign:
         return Response({"added": 0, **workspace_json(b)})
-    scheduled_titles = set(b.posts.values_list("title", flat=True))
-    to_add = [c for c in campaign.content.filter(status="Approved") if c.topic not in scheduled_titles]
-    for i, c in enumerate(to_add):
-        platform = "Instagram" if c.platform == "All" else c.platform
+    already = set(b.posts.values_list("title", "platform"))
+    to_add = []
+    for c in campaign.content.filter(status="Approved"):
+        # "All" content becomes one post per platform.
+        for platform in (PLATFORMS if c.platform == "All" else [c.platform]):
+            if (c.topic, platform) not in already:
+                to_add.append((c, platform))
+    for i, (c, platform) in enumerate(to_add):
         day = 6 - (i % 2)
+        time_label = "12:00 PM" if i % 2 else "5:30 PM"
         ScheduledPost.objects.create(
             business=b,
-            public_id=f"sp-{c.public_id}",
+            public_id=f"sp-{c.public_id}" if c.platform != "All" else f"sp-{c.public_id}-{platform.lower()}",
             title=c.topic,
             platform=platform,
+            content=c,
             day=day,
-            time="12:00 PM" if i % 2 else "5:30 PM",
+            time=time_label,
             date=DAYS[day],
+            scheduled_at=scheduled_at_for(day, time_label),
             status="Scheduled",
         )
     payload = workspace_json(b)

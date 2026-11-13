@@ -17,6 +17,21 @@ export function setToken(token: string | null) {
   else localStorage.removeItem(TOKEN_KEY);
 }
 
+/** Upload a file (multipart). Same error handling as api(). */
+export async function apiUpload<T>(path: string, file: File, method = 'POST'): Promise<T> {
+  const token = getToken();
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`/api${path}`, {
+    method,
+    headers: token ? { Authorization: `Token ${token}` } : {},
+    body: form,
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new ApiError(typeof data.detail === 'string' ? data.detail : 'Upload failed', res.status);
+  return data as T;
+}
+
 export async function api<T>(path: string, opts: { method?: string; body?: unknown } = {}): Promise<T> {
   const token = getToken();
   let res: Response;

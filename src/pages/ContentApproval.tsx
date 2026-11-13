@@ -1,7 +1,7 @@
 import clsx from 'clsx';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Check, Heart, Loader2, MessageCircle, Pencil, RefreshCw, Send, ShieldCheck, ThumbsUp, X } from 'lucide-react';
+import { Check, Heart, ImagePlus, Loader2, MessageCircle, Pencil, RefreshCw, Send, ShieldCheck, ThumbsUp, Trash2, X } from 'lucide-react';
 import { CampaignTabs } from '../components/Layout';
 import { Button, Card, PageHeader, PlatformTag, Select, SourceTag, StatusChip } from '../components/ui';
 import { PLATFORMS, type ContentItem, type Platform } from '../data/mock';
@@ -10,7 +10,9 @@ import { useApp } from '../store/AppStore';
 type Tab = 'All' | 'Awaiting' | 'Approved' | 'Rejected';
 
 export default function ContentApproval() {
-  const { content, setContentStatus, updateCaption, notify } = useApp();
+  const { content, setContentStatus, updateCaption, uploadMedia, removeMedia, notify } = useApp();
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
   const [params] = useSearchParams();
   const [tab, setTab] = useState<Tab>('All');
   const [platform, setPlatform] = useState('All platforms');
@@ -162,6 +164,62 @@ export default function ContentApproval() {
                 <code className="rounded bg-slate-100 px-1 text-xs">/free-intro</code>
               </div>
 
+              <div className="mt-4">
+                <div className="label">Image</div>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/jpeg,image/png"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    if (!file) return;
+                    setUploading(true);
+                    try {
+                      await uploadMedia(active.id, file);
+                      notify('Image added');
+                    } catch (err) {
+                      notify(err instanceof Error ? err.message : 'Upload failed');
+                    } finally {
+                      setUploading(false);
+                    }
+                  }}
+                />
+                {active.media?.length ? (
+                  <div className="flex items-center gap-3">
+                    <img src={active.media[0].url} alt="" className="h-14 w-14 rounded-lg border border-slate-200 object-cover" />
+                    <Button size="sm" icon={<ImagePlus className="h-3.5 w-3.5" />} onClick={() => fileRef.current?.click()} disabled={uploading}>
+                      Replace
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      icon={<Trash2 className="h-3.5 w-3.5" />}
+                      onClick={() => void removeMedia(active.id).then(() => notify('Image removed'))}
+                    >
+                      Remove
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                      size="sm"
+                      icon={uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
+                      onClick={() => fileRef.current?.click()}
+                      disabled={uploading}
+                    >
+                      Add image
+                    </Button>
+                    <span className={clsx('text-xs', active.platform === 'Instagram' || active.platform === 'All' ? 'text-amber-700' : 'text-slate-500')}>
+                      {active.platform === 'Instagram' || active.platform === 'All'
+                        ? 'Instagram needs an image (JPEG) to publish.'
+                        : 'Optional. JPEG or PNG, up to 8 MB.'}
+                    </span>
+                  </div>
+                )}
+              </div>
+
               <div className={clsx('mt-4 rounded-lg border p-3', unsupported ? 'border-dashed border-rose-300 bg-rose-50/60' : 'border-emerald-200 bg-emerald-50/50')}>
                 <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-slate-600">
                   <ShieldCheck className={clsx('h-4 w-4', unsupported ? 'text-rose-600' : 'text-emerald-600')} /> Grounding
@@ -281,8 +339,11 @@ function PostPreview({ item, platform }: { item: ContentItem; platform: Platform
         </div>
       </div>
       {platform !== 'Instagram' && <p className="px-3 pb-2 text-xs leading-relaxed text-slate-800">{caption}</p>}
-      <div className={clsx('relative flex items-end bg-gradient-to-br p-4 text-white', g, platform === 'Instagram' ? 'aspect-square' : 'aspect-[1.91/1]')}>
-        <div>
+      <div
+        className={clsx('relative flex items-end bg-gradient-to-br bg-cover bg-center p-4 text-white', g, platform === 'Instagram' ? 'aspect-square' : 'aspect-[1.91/1]')}
+        style={item.media?.length ? { backgroundImage: `url(${item.media[0].url})` } : undefined}
+      >
+        <div className={item.media?.length ? 'hidden' : undefined}>
           <div className="text-lg font-bold leading-tight drop-shadow">{item.topic}</div>
           <div className="mt-1 text-xs opacity-90">{item.cta} →</div>
         </div>

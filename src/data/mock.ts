@@ -123,6 +123,7 @@ export interface ContentItem {
   caption: string;
   cta: string;
   grounding: string[];
+  media?: { id: number; url: string }[];
 }
 
 export const contentItems: ContentItem[] = [
@@ -188,7 +189,7 @@ export const contentItems: ContentItem[] = [
   },
 ];
 
-export type ScheduleStatus = 'Scheduled' | 'Published' | 'Failed';
+export type ScheduleStatus = 'Scheduled' | 'Publishing' | 'Published' | 'Failed';
 
 export interface ScheduledPost {
   id: string;
@@ -198,7 +199,24 @@ export interface ScheduledPost {
   time: string;
   date: string;
   status: ScheduleStatus;
-  error?: string;
+  error?: string | null;
+  scheduledAt?: string | null;
+  permalink?: string | null;
+  contentId?: string | null;
+}
+
+/** What the server says about one platform connection. Never includes tokens. */
+export interface AccountDetail {
+  connected: boolean;
+  /** true = real account; false = demo connection */
+  live: boolean;
+  /** the server has app credentials, so Connect opens the real sign-in */
+  canConnectLive: boolean;
+  name: string | null;
+  status: '' | 'needs_target' | 'expired' | 'error' | null;
+  error: string | null;
+  expiresAt: string | null;
+  lastSyncedAt: string | null;
 }
 
 export const scheduledPosts: ScheduledPost[] = [

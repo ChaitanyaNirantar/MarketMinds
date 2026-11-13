@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from .models import Business, Campaign, Goal
+from .integrations.registry import PLATFORMS, live_provider
+from .models import Business, Campaign, Goal, SocialAccount
 
 
 def tick_processing(business: Business):
@@ -24,6 +25,20 @@ def source_json(s):
         "chunks": s.chunks,
         "progress": s.progress,
         "error": s.error or None,
+    }
+
+
+def account_json(platform: str, account: SocialAccount | None):
+    """What the UI needs to know about one platform connection. Never includes tokens."""
+    return {
+        "connected": bool(account and account.connected),
+        "live": bool(account and account.is_live),
+        "canConnectLive": live_provider(platform) is not None,
+        "name": (account.display_name if account else "") or None,
+        "status": (account.status if account else "") or None,
+        "error": (account.last_error if account else "") or None,
+        "expiresAt": account.token_expires_at.isoformat() if account and account.token_expires_at else None,
+        "lastSyncedAt": account.last_synced_at.isoformat() if account and account.last_synced_at else None,
     }
 
 
@@ -54,9 +69,9 @@ def workspace_json(business: Business):
     current_goal = business.goals.filter(is_current=True).order_by("-id").first()
     campaign = business.campaigns.filter(is_current=True).first() or business.campaigns.order_by("id").first()
     strategy = getattr(current_goal, "strategy", None) if current_goal else None
-    accounts = {a.platform: a.connected for a in business.accounts.all()}
-    for p in ("LinkedIn", "Instagram", "Facebook"):
-        accounts.setdefault(p, False)
+    by_platform = {a.platform: a for a in business.accounts.all()}
+    accounts = {p: bool(by_platform.get(p) and by_platform[p].connected) for p in PLATFORMS}
+    account_details = {p: account_json(p, by_platform.get(p)) for p in PLATFORMS}
 
     rec = None
     past_recs = []
@@ -83,8 +98,9 @@ def workspace_json(business: Business):
                 "caption": c.caption,
                 "cta": c.cta,
                 "grounding": c.grounding or [],
+                "media": [{"id": m.id, "url": m.file.url} for m in c.media.all()],
             }
-            for c in campaign.content.all()
+            for c in campaign.content.prefetch_related("media")
         ]
         results = [
             {
@@ -166,7 +182,9 @@ def workspace_json(business: Business):
         ],
         "phases": phases,
         "content": content,
+        "platforms": PLATFORMS,
         "accounts": accounts,
+        "accountDetails": account_details,
         "posts": [
             {
                 "id": p.public_id,
@@ -177,8 +195,11 @@ def workspace_json(business: Business):
                 "date": p.date,
                 "status": p.status,
                 "error": p.error or None,
+                "scheduledAt": p.scheduled_at.isoformat() if p.scheduled_at else None,
+                "permalink": p.permalink or None,
+                "contentId": p.content.public_id if p.content else None,
             }
-            for p in business.posts.all()
+            for p in business.posts.select_related("content")
         ],
         "results": results,
         "websiteOutcomes": None

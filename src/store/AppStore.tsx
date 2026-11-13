@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { api, getToken, setToken } from '../api';
-import type { ChannelResult, ContentItem, ContentStatus, Passage, Platform, Product, ScheduledPost, Source } from '../data/mock';
+import { api, apiUpload, getToken, setToken } from '../api';
+import type { AccountDetail, ChannelResult, ContentItem, ContentStatus, Passage, Platform, Product, ScheduledPost, Source } from '../data/mock';
 
 export interface GoalDraft {
   id?: string | null;
@@ -69,6 +69,7 @@ export interface Workspace {
   campaigns: { name: string; members: number | null; status: string; to: string }[];
   content: ContentItem[];
   accounts: Record<Platform, boolean>;
+  accountDetails?: Partial<Record<Platform, AccountDetail>>;
   posts: ScheduledPost[];
   results: ChannelResult[];
   websiteOutcomes: { visits: number; leads: number; source: string } | null;
@@ -110,12 +111,22 @@ interface AppState {
   content: ContentItem[];
   setContentStatus: (ids: string[], status: ContentStatus) => Promise<void>;
   updateCaption: (id: string, caption: string) => Promise<void>;
+  uploadMedia: (contentId: string, file: File) => Promise<void>;
+  removeMedia: (contentId: string) => Promise<void>;
 
   accounts: Record<Platform, boolean>;
-  connect: (p: Platform) => Promise<void>;
+  accountDetails: Partial<Record<Platform, AccountDetail>>;
+  /** Real sign-in when the server supports it (navigates away), demo connect otherwise. Returns 'redirect' or 'demo'. */
+  connect: (p: Platform) => Promise<'redirect' | 'demo'>;
+  disconnect: (p: Platform) => Promise<void>;
+  listTargets: (p: Platform) => Promise<{ id: string; name: string }[]>;
+  selectTarget: (p: Platform, id: string) => Promise<void>;
+  refresh: () => Promise<Workspace>;
 
   posts: ScheduledPost[];
   retryPost: (id: string) => Promise<void>;
+  publishNow: (id: string) => Promise<{ published: boolean; error: string | null }>;
+  syncResults: () => Promise<Record<string, string>>;
   movePost: (id: string, day: number) => Promise<void>;
   scheduleApproved: () => Promise<number>;
 
@@ -142,6 +153,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   const [sources, setSources] = useState<Source[]>([]);
   const [content, setContent] = useState<ContentItem[]>([]);
   const [accounts, setAccounts] = useState<Record<Platform, boolean>>(emptyAccounts);
+  const [accountDetails, setAccountDetails] = useState<Partial<Record<Platform, AccountDetail>>>({});
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
   const [results, setResultsState] = useState<ChannelResult[]>([]);
   const [business, setBusiness] = useState<BusinessProfile>(emptyBusiness);
@@ -172,6 +184,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     setCampaigns(ws.campaigns);
     setContent(ws.content);
     setAccounts({ ...emptyAccounts, ...ws.accounts });
+    setAccountDetails(ws.accountDetails ?? {});
     setPosts(ws.posts);
     setResultsState(ws.results);
     setWebsiteOutcomes(ws.websiteOutcomes);
@@ -298,13 +311,46 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       updateCaption: async (id, caption) => {
         await run(() => api(`/content/${id}`, { method: 'PATCH', body: { caption } }));
       },
-      accounts,
-      connect: async (p) => {
-        await run(() => api(`/accounts/${p}/connect`, { method: 'POST', body: {} }));
+      uploadMedia: async (contentId, file) => {
+        await run(() => apiUpload(`/content/${contentId}/media`, file));
       },
+      removeMedia: async (contentId) => {
+        await run(() => api(`/content/${contentId}/media`, { method: 'DELETE' }));
+      },
+      accounts,
+      accountDetails,
+      connect: async (p) => {
+        if (accountDetails[p]?.canConnectLive) {
+          const { url } = await api<{ url: string }>(`/accounts/${p}/authorize`);
+          window.location.assign(url);
+          return 'redirect';
+        }
+        await run(() => api(`/accounts/${p}/connect`, { method: 'POST', body: {} }));
+        return 'demo';
+      },
+      disconnect: async (p) => {
+        await run(() => api(`/accounts/${p}/disconnect`, { method: 'POST', body: {} }));
+      },
+      listTargets: (p) => api<{ id: string; name: string }[]>(`/accounts/${p}/targets`),
+      selectTarget: async (p, id) => {
+        await run(() => api(`/accounts/${p}/select`, { body: { id } }));
+      },
+      refresh,
       posts,
       retryPost: async (id) => {
         await run(() => api(`/posts/${id}/retry`, { method: 'POST', body: {} }));
+      },
+      publishNow: async (id) => {
+        const res = (await run(() =>
+          api<Workspace & { published: boolean; error: string | null }>(`/posts/${id}/publish-now`, { method: 'POST', body: {} }),
+        )) as Workspace & { published: boolean; error: string | null };
+        return { published: res.published, error: res.error };
+      },
+      syncResults: async () => {
+        const res = (await run(() => api<Workspace & { sync: Record<string, string> }>('/results/sync', { method: 'POST', body: {} }))) as Workspace & {
+          sync: Record<string, string>;
+        };
+        return res.sync;
       },
       movePost: async (id, day) => {
         await run(() => api(`/posts/${id}/move`, { method: 'POST', body: { day } }));
@@ -348,6 +394,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       sources,
       content,
       accounts,
+      accountDetails,
       posts,
       results,
       toasts,

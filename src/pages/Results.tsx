@@ -1,7 +1,7 @@
 import clsx from 'clsx';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FileUp, FlaskConical, Keyboard } from 'lucide-react';
+import { FileUp, FlaskConical, Keyboard, Loader2, RefreshCw } from 'lucide-react';
 import { CampaignTabs } from '../components/Layout';
 import { Button, Card, Field, PageHeader, PlatformTag, Select, StatusChip } from '../components/ui';
 import { type ChannelResult, type ResultSource } from '../data/mock';
@@ -11,7 +11,11 @@ type Method = 'import' | 'type' | 'sample';
 const numericCols = ['impressions', 'clicks', 'leads', 'members'] as const;
 
 export default function Results() {
-  const { results, setResults, notify, loadSampleResults, websiteOutcomes } = useApp();
+  const { results, setResults, notify, loadSampleResults, websiteOutcomes, accountDetails, syncResults } = useApp();
+  const [syncing, setSyncing] = useState(false);
+  const liveAccounts = Object.entries(accountDetails)
+    .filter(([, d]) => d?.live && d.connected)
+    .map(([p]) => p);
   const [campaign, setCampaign] = useState('Fall Member Drive');
   const [method, setMethod] = useState<Method>('import');
   const [rows, setRows] = useState<ChannelResult[]>(results);
@@ -21,6 +25,14 @@ export default function Results() {
   const [touched, setTouched] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+
+  // Rows marked Connected come from the server; keep them in step after a sync.
+  useEffect(() => {
+    setRows((current) => {
+      const fresh = new Map(results.map((r) => [r.channel, r]));
+      return current.map((r) => (fresh.get(r.channel)?.source === 'Connected' ? fresh.get(r.channel)! : r));
+    });
+  }, [results]);
 
   const choose = (m: Method) => {
     setMethod(m);
@@ -79,7 +91,37 @@ export default function Results() {
         ))}
       </div>
 
-      <Card title="Channel results" className="mb-5">
+      <Card
+        title="Channel results"
+        className="mb-5"
+        subtitle={
+          liveAccounts.length
+            ? `Impressions and clicks for ${liveAccounts.join(' and ')} come from the connected account. Leads and members stay yours to enter.`
+            : undefined
+        }
+        action={
+          liveAccounts.length ? (
+            <Button
+              size="sm"
+              icon={syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              disabled={syncing}
+              onClick={async () => {
+                setSyncing(true);
+                try {
+                  const summary = await syncResults();
+                  notify(Object.entries(summary).map(([p, s]) => `${p}: ${s}`).join(' · ') || 'Nothing to sync');
+                } catch (e) {
+                  notify(e instanceof Error ? e.message : 'Sync failed');
+                } finally {
+                  setSyncing(false);
+                }
+              }}
+            >
+              Sync now
+            </Button>
+          ) : undefined
+        }
+      >
         <table className="w-full">
           <thead className="bg-slate-50">
             <tr>
