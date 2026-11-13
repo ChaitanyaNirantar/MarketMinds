@@ -41,8 +41,13 @@ class FacebookProvider(Provider):
             "redirect_uri": self.redirect_uri(),
             "state": state,
             "response_type": "code",
-            "scope": settings.FACEBOOK_SCOPES,
         }
+        if settings.FACEBOOK_LOGIN_CONFIG_ID:
+            # Facebook Login for Business: permissions come from the saved configuration.
+            query["config_id"] = settings.FACEBOOK_LOGIN_CONFIG_ID
+            query["override_default_response_type"] = "true"
+        else:
+            query["scope"] = settings.FACEBOOK_SCOPES
         return f"https://www.facebook.com/{settings.META_GRAPH_VERSION}/dialog/oauth?{urlencode(query)}"
 
     def exchange_code(self, code: str) -> TokenSet:

@@ -34,6 +34,9 @@ CSRF_TRUSTED_ORIGINS = [PUBLIC_BASE_URL] if PUBLIC_BASE_URL.startswith("https://
 META_GRAPH_VERSION = os.environ.get("META_GRAPH_VERSION", "v24.0")
 FACEBOOK_APP_ID = os.environ.get("FACEBOOK_APP_ID", "")
 FACEBOOK_APP_SECRET = os.environ.get("FACEBOOK_APP_SECRET", "")
+# Facebook Login for Business uses a saved configuration (App Dashboard -> Facebook
+# Login for Business -> Configurations) instead of a scope list. Set its ID here.
+FACEBOOK_LOGIN_CONFIG_ID = os.environ.get("FACEBOOK_LOGIN_CONFIG_ID", "")
 FACEBOOK_SCOPES = os.environ.get(
     "FACEBOOK_SCOPES", "pages_show_list,pages_manage_posts,pages_read_engagement,read_insights"
 )

@@ -158,6 +158,13 @@ class OAuthFlowTests(MetaTestCase):
         self.assertEqual(url.netloc, "www.instagram.com")
         self.assertIn("instagram_business_content_publish", q["scope"][0])
 
+    @override_settings(FACEBOOK_LOGIN_CONFIG_ID="cfg-123")
+    def test_facebook_login_for_business_uses_config_id(self):
+        _, q = self.start("facebook")
+        self.assertEqual(q["config_id"], ["cfg-123"])
+        self.assertEqual(q["override_default_response_type"], ["true"])
+        self.assertNotIn("scope", q)
+
     @override_settings(FACEBOOK_APP_ID="", FACEBOOK_APP_SECRET="")
     def test_authorize_refused_when_not_configured_and_demo_connect_still_works(self):
         self.assertEqual(self.client.get("/api/accounts/Facebook/authorize").status_code, 400)
