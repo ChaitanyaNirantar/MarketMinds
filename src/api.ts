@@ -24,10 +24,10 @@ export async function api<T>(path: string, opts: { method?: string; body?: unkno
     res = await fetch(`/api${path}`, {
       method: opts.method ?? (opts.body ? 'POST' : 'GET'),
       headers: {
-        'Content-Type': 'application/json',
+        ...(opts.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
         ...(token ? { Authorization: `Token ${token}` } : {}),
       },
-      body: opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
+      body: opts.body instanceof FormData ? opts.body : opts.body !== undefined ? JSON.stringify(opts.body) : undefined,
     });
   } catch {
     throw new ApiError('Cannot reach the Django API. Start it with: python3 backend/manage.py runserver 8000', 0);

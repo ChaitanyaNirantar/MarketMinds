@@ -1,4 +1,3 @@
-import re
 import time
 from datetime import date
 
@@ -13,11 +12,9 @@ from .models import (
     ChannelResult,
     ContentItem,
     Goal,
-    KnowledgeSource,
     Product,
     ScheduledPost,
     SocialAccount,
-    Strategy,
 )
 from .payload import SAMPLE_RESULTS, current_campaign, source_json, workspace_json
 from .seed import seed_demo
@@ -120,149 +117,6 @@ def save_business(request):
                 description=p.get("description") or "",
                 price=p.get("price") or "",
             )
-    return ok_workspace(b)
-
-
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def add_source(request):
-    b = business_of(request)
-    name = (request.data.get("name") or "").strip()
-    kind = request.data.get("type") or "TXT"
-    if not name:
-        return Response({"detail": "Name is required."}, status=400)
-    source = KnowledgeSource.objects.create(
-        business=b,
-        public_id=f"s{int(time.time() * 1000)}",
-        name=name,
-        kind=kind if kind in {c.value for c in KnowledgeSource.Kind} else "TXT",
-        status="Processing",
-        progress=0,
-    )
-    return Response(source_json(source), status=201)
-
-
-@api_view(["DELETE"])
-@permission_classes([IsAuthenticated])
-def delete_source(request, source_id):
-    b = business_of(request)
-    KnowledgeSource.objects.filter(business=b, public_id=source_id).delete()
-    return ok_workspace(b)
-
-
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def retry_source(request, source_id):
-    b = business_of(request)
-    source = KnowledgeSource.objects.filter(business=b, public_id=source_id).first()
-    if not source:
-        return Response({"detail": "Source not found."}, status=404)
-    source.status = "Processing"
-    source.progress = 0
-    source.error = ""
-    source.save()
-    return ok_workspace(b)
-
-
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def search_knowledge(request):
-    b = business_of(request)
-    query = (request.data.get("query") or "").lower()
-    words = [w for w in re.split(r"\W+", query) if len(w) > 3]
-    scored = []
-    for p in b.passages.all():
-        hits = sum(1 for w in words if w in p.text.lower())
-        scored.append({"text": p.text, "source": p.source_label, "score": p.score, "hits": hits})
-    scored.sort(key=lambda x: (x["hits"], x["score"]), reverse=True)
-    return Response(scored[:3])
-
-
-@api_view(["PUT"])
-@permission_classes([IsAuthenticated])
-def save_goal(request):
-    b = business_of(request)
-    data = request.data
-    goal = b.goals.filter(is_current=True).first()
-    if not goal:
-        goal = Goal.objects.create(business=b, public_id="12", is_current=True, text="")
-    goal.text = data.get("text", goal.text)
-    goal.outcome = data.get("outcome", goal.outcome)
-    goal.target = int(data.get("target", goal.target) or 0)
-    deadline = data.get("deadline")
-    if deadline:
-        goal.deadline = date.fromisoformat(deadline)
-    goal.budget = int(data.get("budget", goal.budget) or 0)
-    goal.channels = data.get("channels", goal.channels)
-    goal.status = "Draft"
-    goal.save()
-    return ok_workspace(b)
-
-
-def _interpret_and_fill_strategy(goal: Goal):
-    strategy, _ = Strategy.objects.get_or_create(
-        goal=goal,
-        defaults={
-            "title": f"Strategy: {goal.outcome.lower()} campaign",
-            "status": "Awaiting approval",
-            "audience": "Beginners aged 22-40 within 5 miles who want coached, low-pressure workouts.",
-            "messages": ["You do not need to be fit to start.", "Coaches guide every rep.", "Real member results."],
-            "allocation": [{"p": p, "pct": pct} for p, pct in zip(goal.channels or ["Instagram", "Facebook", "LinkedIn"], [45, 35, 20])],
-            "conversion_note": "Send all posts to /free-intro. Track form submissions as the conversion.",
-            "evidence": [
-                {"kind": "Fact", "text": "New members start with a free coached intro session.", "source": "ironpeakfitness.com/start"},
-                {"kind": "Assumption", "text": "This goal can be reached with the current channel mix.", "source": "AI-inferred"},
-            ],
-        },
-    )
-    strategy.status = "Awaiting approval"
-    strategy.save()
-    goal.status = "Awaiting approval"
-    goal.save()
-    return strategy
-
-
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def generate_strategy(request):
-    b = business_of(request)
-    goal = b.goals.filter(is_current=True).first()
-    if not goal:
-        goal = Goal.objects.create(business=b, public_id="12", is_current=True, text="")
-    data = request.data or {}
-    if data.get("text"):
-        goal.text = data["text"]
-    if data.get("outcome"):
-        goal.outcome = data["outcome"]
-    if "target" in data:
-        goal.target = int(data.get("target") or 0)
-    if data.get("deadline"):
-        goal.deadline = date.fromisoformat(data["deadline"])
-    if "budget" in data:
-        goal.budget = int(data.get("budget") or 0)
-    if "channels" in data:
-        goal.channels = data["channels"]
-    goal.save()
-    _interpret_and_fill_strategy(goal)
-    return ok_workspace(b)
-
-
-@api_view(["POST"])
-@permission_classes([IsAuthenticated])
-def approve_strategy(request):
-    b = business_of(request)
-    goal = b.goals.filter(is_current=True).first()
-    if not goal or not hasattr(goal, "strategy"):
-        return Response({"detail": "No strategy to approve."}, status=400)
-    goal.strategy.status = "Approved"
-    goal.strategy.save()
-    goal.status = "Approved"
-    goal.save()
-    campaign = current_campaign(b)
-    if campaign:
-        campaign.status = "Plan ready" if campaign.status == "Draft" else campaign.status
-        campaign.goal = goal
-        campaign.save()
     return ok_workspace(b)
 
 

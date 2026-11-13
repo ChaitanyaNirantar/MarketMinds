@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Start the Django API at http://127.0.0.1:8000 and seed the demo account.
+# Start the Django API without resetting existing work.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT/backend"
@@ -17,9 +17,9 @@ else
 fi
 
 "$PY" manage.py migrate
-"$PY" manage.py seed_demo
 echo
 echo "Django API: http://127.0.0.1:8000/api/health"
-echo "Demo login: you@business.com / password123"
+echo "Sign up for a workspace. Optional demo reset: python manage.py seed_demo"
+echo "AI worker (separate terminal): .venv/bin/python manage.py run_ai_worker"
 echo
 exec "$PY" manage.py runserver 8000

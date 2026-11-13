@@ -7,7 +7,7 @@ import { Button, Field } from '../components/ui';
 import { useApp } from '../store/AppStore';
 
 const benefits = [
-  { icon: FileText, title: 'Grounded in your own documents', body: 'Every claim comes from your knowledge base.' },
+  { icon: FileText, title: 'Grounded in your own documents', body: 'Inspect document citations and review AI assumptions.' },
   { icon: ShieldCheck, title: 'You approve before anything is published', body: 'Nothing goes out without your sign-off.' },
   { icon: TrendingUp, title: 'Judged by leads and sales, not likes', body: 'Dashboards lead with business outcomes.' },
 ];
@@ -59,7 +59,7 @@ export default function Login() {
             into a campaign that learns.
           </h1>
           <p className="mt-4 text-lg text-brand-100">
-            Describe what you want for your business. We plan, draft and measure; you approve every post.
+            Upload your business documents and describe your goal. Review cited strategy ideas and choose a plan.
           </p>
           <ul className="mt-10 space-y-5">
             {benefits.map(({ icon: Icon, title, body }) => (

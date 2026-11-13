@@ -30,7 +30,7 @@ chmod +x scripts/start-backend.sh scripts/start-frontend.sh
 ./scripts/start-backend.sh
 ```
 
-That migrates SQLite, loads the Iron Peak Fitness demo workspace, and serves **http://127.0.0.1:8000**.
+That migrates SQLite and serves **http://127.0.0.1:8000**.
 
 Or by hand:
 
@@ -52,7 +52,7 @@ python manage.py runserver 8000
 
 Or: `npm install && npm run dev`
 
-Open **http://localhost:5173**. Log in with the demo account:
+Open **http://localhost:5173** and sign up for an empty workspace. To create the optional demo account, run `python backend/manage.py seed_demo` with the backend environment active (this resets its workspace). Demo credentials:
 
 | | |
 | --- | --- |
@@ -69,7 +69,11 @@ Django admin: http://127.0.0.1:8000/admin/ (create a superuser with `python mana
 
 Approving a post, connecting Facebook, retrying a failed publish, saving results, editing the business profile, and accepting a recommendation all persist in SQLite. Restarting the servers keeps your changes until you run `python manage.py seed_demo` again, which resets the demo account.
 
-Indexing progress, strategy generation, and social connect are still simulated (no live LLM, document parser, or OAuth). They run as Django endpoints instead of browser-only mock state.
+PDF/TXT indexing, semantic retrieval, strategy ideas, and performance recommendations now use local Ollama with cited evidence. See [README_AI.md](README_AI.md) for model installation, the required background worker, evaluation, and limitations. Social connect/publishing and post generation remain simulated or unimplemented; they are not live integrations.
+
+## Local AI workflow
+
+Follow [README_AI.md](README_AI.md) to install `embeddinggemma` and `qwen3:4b`, start `run_ai_worker` in a separate terminal, and upload a PDF/TXT business brief. The included fictional `docs/examples/harbor-yoga.txt` is a starting example. Review citations and assumptions, then explicitly accept a strategy to create a campaign.
 
 ## Screens
 
@@ -114,5 +118,5 @@ python backend/manage.py seed_demo
 
 ## Not in this prototype yet
 
-- Real LLM calls, document parsing/embeddings, or live social-platform OAuth and publishing
+- OCR, DOCX/website ingestion, AI post drafting, or live social-platform OAuth and publishing
 - Production auth hardening (this is a local demo: `DEBUG=True`, SQLite, a committed dev secret)

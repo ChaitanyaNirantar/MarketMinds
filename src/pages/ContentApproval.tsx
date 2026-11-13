@@ -40,11 +40,12 @@ export default function ContentApproval() {
   const active = content.find((c) => c.id === activeId) ?? content[0];
 
   useEffect(() => {
-    setVariant(active.platform === 'All' ? 'Instagram' : active.platform);
+    if (active) setVariant(active.platform === 'All' ? 'Instagram' : active.platform);
     setEditing(false);
-  }, [active.id, active.platform]);
+  }, [active?.id, active?.platform]);
 
   const toggleSel = (id: string) => setSelected((s) => (s.includes(id) ? s.filter((x) => x !== id) : [...s, id]));
+  if (!active) return <><PageHeader title="Content drafts" subtitle="Your campaign has no drafts yet. Document-grounded strategy ideas are available; post generation is not implemented." /><CampaignTabs /></>;
   const unsupported = active.grounding.length === 0;
 
   return (

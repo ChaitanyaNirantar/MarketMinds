@@ -1,5 +1,10 @@
 from django.conf import settings
 from django.db import models
+import uuid
+
+
+def private_document_path(instance, filename):
+    return f"knowledge/{instance.business_id}/{uuid.uuid4().hex}"
 
 
 class Business(models.Model):
@@ -49,6 +54,11 @@ class KnowledgeSource(models.Model):
     chunks = models.IntegerField(null=True, blank=True)
     progress = models.IntegerField(null=True, blank=True)
     error = models.TextField(blank=True)
+    file = models.FileField(upload_to=private_document_path, blank=True)
+    sha256 = models.CharField(max_length=64, blank=True)
+    embedding_model = models.CharField(max_length=120, blank=True)
+    category = models.CharField(max_length=30, default="general")
+    created_at = models.DateTimeField(auto_now_add=True, null=True)
 
     class Meta:
         unique_together = ("business", "public_id")
@@ -190,3 +200,45 @@ class Recommendation(models.Model):
     proposed_goal = models.CharField(max_length=300, blank=True)
     proposed_mix = models.CharField(max_length=200, blank=True)
     proposed_experiment = models.CharField(max_length=200, blank=True)
+
+
+class KnowledgeChunk(models.Model):
+    source = models.ForeignKey(KnowledgeSource, on_delete=models.CASCADE, related_name="indexed_chunks")
+    position = models.PositiveIntegerField()
+    location = models.CharField(max_length=80)
+    text = models.TextField()
+    embedding = models.JSONField()
+
+    class Meta:
+        ordering = ["source_id", "position"]
+        constraints = [models.UniqueConstraint(fields=["source", "position"], name="unique_source_chunk")]
+
+
+class AIJob(models.Model):
+    """Durable, single-worker local queue. No HTTP request waits for inference."""
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    business = models.ForeignKey(Business, on_delete=models.CASCADE, related_name="ai_jobs")
+    source = models.ForeignKey(KnowledgeSource, null=True, blank=True, on_delete=models.CASCADE)
+    goal = models.ForeignKey(Goal, null=True, blank=True, on_delete=models.CASCADE)
+    campaign = models.ForeignKey(Campaign, null=True, blank=True, on_delete=models.SET_NULL)
+    kind = models.CharField(max_length=20, choices=[("index", "Index"), ("strategy", "Strategy"), ("recommendation", "Recommendation")])
+    status = models.CharField(max_length=30, default="queued")
+    stage = models.CharField(max_length=80, default="Queued; start the AI worker")
+    error = models.CharField(max_length=300, blank=True)
+    snapshot = models.JSONField(default=dict)
+    evidence = models.JSONField(default=list)
+    output = models.JSONField(default=dict)
+    model = models.CharField(max_length=120, blank=True)
+    prompt_version = models.CharField(max_length=30, default="rag-v3")
+    latency_ms = models.PositiveIntegerField(null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    accepted_at = models.DateTimeField(null=True)
+    accepted_idea = models.PositiveSmallIntegerField(null=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        constraints = [
+            models.UniqueConstraint(fields=["source"], condition=models.Q(status__in=["queued", "running"], kind="index"), name="one_active_index_job"),
+            models.UniqueConstraint(fields=["business"], condition=models.Q(status__in=["queued", "running"], kind__in=["strategy", "recommendation"]), name="one_active_generation"),
+        ]
