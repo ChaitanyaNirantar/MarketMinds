@@ -1,21 +1,26 @@
 from django.urls import path
 
-from . import views
+from . import views, rag_views
 
 urlpatterns = [
+    path("campaigns/<str:campaign_id>/plan", rag_views.campaign_plan),
+    path("knowledge/readiness", rag_views.readiness),
+    path("ai/generations", rag_views.generations),
+    path("ai/generations/<uuid:job_id>", rag_views.generation_detail),
+    path("ai/generations/<uuid:job_id>/accept", rag_views.accept_generation),
     path("health", views.health),
     path("auth/login", views.login),
     path("auth/signup", views.signup),
     path("seed", views.seed),
     path("workspace", views.workspace),
     path("business", views.save_business),
-    path("sources", views.add_source),
-    path("sources/<str:source_id>", views.delete_source),
-    path("sources/<str:source_id>/retry", views.retry_source),
-    path("knowledge/search", views.search_knowledge),
-    path("goals", views.save_goal),
-    path("goals/generate-strategy", views.generate_strategy),
-    path("goals/approve-strategy", views.approve_strategy),
+    path("sources", rag_views.upload),
+    path("sources/<str:source_id>", rag_views.delete_source),
+    path("sources/<str:source_id>/retry", rag_views.retry_source),
+    path("knowledge/search", rag_views.search),
+    path("goals", rag_views.save_goal),
+    path("goals/generate-strategy", rag_views.retired_generation),
+    path("goals/approve-strategy", rag_views.retired_generation),
     path("campaigns/generate-content", views.generate_content),
     path("content/bulk-status", views.bulk_content_status),
     path("content/<str:content_id>", views.update_content),

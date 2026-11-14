@@ -82,3 +82,17 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticated",
     ],
 }
+
+# Local inference and private uploads. Never serve this directory as public MEDIA_URL.
+import os
+MEDIA_ROOT = Path(os.environ.get("MARKETMINDS_MEDIA_ROOT", BASE_DIR / "private_uploads"))
+OLLAMA_BASE_URL = os.environ.get("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
+OLLAMA_EMBED_MODEL = os.environ.get("OLLAMA_EMBED_MODEL", "embeddinggemma")
+OLLAMA_CHAT_MODEL = os.environ.get("OLLAMA_CHAT_MODEL", "qwen3:4b")
+AI_TIMEOUT_SECONDS = int(os.environ.get("AI_TIMEOUT_SECONDS", "120"))
+DATA_UPLOAD_MAX_MEMORY_SIZE = 11 * 1024 * 1024
+FILE_UPLOAD_PERMISSIONS = 0o600
+FILE_UPLOAD_DIRECTORY_PERMISSIONS = 0o700
+DATABASES["default"]["OPTIONS"] = {"timeout": 20}
+if os.environ.get("MARKETMINDS_DATABASE"):
+    DATABASES["default"]["NAME"] = os.environ["MARKETMINDS_DATABASE"]

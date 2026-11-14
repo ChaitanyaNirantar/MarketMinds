@@ -1,0 +1,300 @@
+{
+  "environment": {
+    "python": "3.12.13",
+    "platform": "macOS-26.6.2-arm64-arm-64bit"
+  },
+  "cases": [
+    {
+      "case": "performance",
+      "input": {
+        "document": "Harbor Yoga \u2014 fictional business brief for demonstration\n\nServices: Harbor Yoga offers beginner yoga classes for adults in the local neighborhood. Introductory classes require advance booking. Each class has a maximum capacity of twelve participants.\n\nAudience: First-time adult students who prefer calm instruction and an approachable environment. Many prospects feel intimidated by unfamiliar poses. They want to understand what to expect before booking.\n\nBrand voice: Warm, clear, welcoming, and practical. Explain the experience without promising health benefits.\n\nRestrictions: Do not advertise discounts or guaranteed health outcomes. Prices are not provided in this brief. Instructor availability for video filming has not been confirmed. No testimonials or previous campaign results have been supplied.\n\nGoal context: We want to increase introductory bookings while staying within our class capacity. Useful experiments could compare explanations of a first visit with introductions to the teaching approach. These are proposed experiments, not proven results.\n",
+        "goal": "Recommend the next experiment using our recorded results",
+        "results": [
+          {
+            "channel": "Instagram",
+            "impressions": 1000,
+            "clicks": 50,
+            "leads": 10,
+            "members": 4,
+            "source": "Typed"
+          },
+          {
+            "channel": "Facebook",
+            "impressions": 800,
+            "clicks": 40,
+            "leads": 8,
+            "members": 2,
+            "source": "Typed"
+          }
+        ]
+      },
+      "expected": "Use the supplied source-labeled metrics; no fabricated performance or causal claims.",
+      "index_status": "succeeded",
+      "index_latency_ms": 109,
+      "index_error": "",
+      "retrieval_checks": [
+        {
+          "query": "How can first-time visitors learn what to expect in a class?",
+          "expected_source": "brief.txt",
+          "actual": [
+            {
+              "citation_id": "S1",
+              "chunk_id": 1,
+              "source_id": "080edc2aa53a4c3e9fe6479233c7bc78",
+              "source": "brief.txt",
+              "location": "Text",
+              "text": "Harbor Yoga \u2014 fictional business brief for demonstration\n\nServices: Harbor Yoga offers beginner yoga classes for adults in the local neighborhood. Introductory classes require advance booking. Each class has a maximum capacity of twelve participants.\n\nAudience: First-time adult students who prefer calm instruction and an approachable environment. Many prospects feel intimidated by unfamiliar poses. They want to understand what to expect before booking.\n\nBrand voice: Warm, clear, welcoming, and practical. Explain the experience without promising health benefits.\n\nRestrictions: Do not advertise discounts or guaranteed health outcomes. Prices are not provided in this brief. Instructor availability for video filming has not been confirmed. No testimonials or previous campaign results have been supplied.\n\nGoal context: We want to increase introductory bookings while staying within our class capacity. Useful experiments could compare explanations of a first visit with introductions to the teaching approach. These are proposed experiments, not proven results.",
+              "score": 0.4263
+            }
+          ],
+          "passed": true
+        },
+        {
+          "query": "What paperwork is needed to claim business expenses?",
+          "expected_source": "operations.txt",
+          "actual": [
+            {
+              "citation_id": "S1",
+              "chunk_id": 2,
+              "source_id": "af140e1bbc244c66bda25687ca7289fd",
+              "source": "operations.txt",
+              "location": "Text",
+              "text": "Operations handbook: expense reimbursement requests require an invoice and a manager signature. Submit invoices by the last business day each month. This handbook does not contain audience research or class descriptions.",
+              "score": 0.5057
+            }
+          ],
+          "passed": true
+        }
+      ],
+      "generation": {
+        "id": "3cd04d6f-66f2-434d-b4a5-ca9815c2ba38",
+        "kind": "recommendation",
+        "status": "succeeded",
+        "stage": "Ready for review",
+        "error": "",
+        "goal_id": "8fde4ce594834537b054d9865cdffde0",
+        "accepted": false,
+        "campaign_id": "eval-campaign",
+        "model": "qwen3:4b",
+        "latency_ms": 11736,
+        "created_at": "2026-11-13T19:54:51.359460+00:00",
+        "output": {
+          "status": "ready",
+          "conflicts": [],
+          "ideas": [
+            {
+              "title": "Compare first visit explanations with teaching approach introductions",
+              "rationale": "The business goal is to increase introductory bookings while staying within class capacity. The current results show Instagram leads are higher than Facebook leads, but both channels have low conversion rates. The brief suggests experiments comparing explanations of a first visit with introductions to the teaching approach to address prospect intimidation.",
+              "audience": "First-time adult students who prefer calm instruction and an approachable environment. Many prospects feel intimidated by unfamiliar poses and want to understand what to expect before booking.",
+              "supporting_facts": [
+                {
+                  "claim": "The business aims to increase introductory bookings without exceeding class capacity",
+                  "citation_id": "S1",
+                  "quote": "We want to increase introductory bookings while staying within our class capacity."
+                },
+                {
+                  "claim": "Prospects feel intimidated by unfamiliar poses and need clarity on expectations",
+                  "citation_id": "S1",
+                  "quote": "Many prospects feel intimidated by unfamiliar poses. They want to understand what to expect before booking."
+                }
+              ],
+              "proposed_actions": [
+                "Run A/B test on Instagram ads comparing two ad variants: one explaining the first visit experience (e.g., 'Your first class: 15-minute intro session with a friendly instructor') vs. one introducing the teaching approach (e.g., 'How we guide you through poses safely')",
+                "Track conversion rates for each variant to measure which explanation reduces intimidation and increases bookings",
+                "Ensure ad variants comply with brand voice: warm, clear, welcoming, and practical without promising health benefits",
+                "Use Instagram's A/B testing feature to run the test within the 2026-12-20 deadline"
+              ],
+              "assumptions": [
+                "Instagram's A/B testing feature is available for the business",
+                "The teaching approach explanation will be more effective than the first visit explanation for reducing intimidation",
+                "The business has sufficient class capacity to accommodate increased bookings without exceeding twelve participants per class"
+              ],
+              "success_metrics": [
+                "Higher conversion rate from Instagram ads (leads to class bookings) compared to current baseline",
+                "Increased number of first-time students booking introductory classes without feeling intimidated",
+                "Maintaining class capacity at twelve participants per class"
+              ],
+              "risks": [
+                "Ad variants may not significantly impact booking rates due to low conversion rates in current results",
+                "Instructor availability for video filming may limit ad production",
+                "The business may not have enough class capacity to handle increased bookings"
+              ]
+            }
+          ],
+          "missing_information": []
+        },
+        "evidence": [
+          {
+            "citation_id": "S1",
+            "chunk_id": 1,
+            "source_id": "080edc2aa53a4c3e9fe6479233c7bc78",
+            "source": "brief.txt",
+            "location": "Text",
+            "text": "Harbor Yoga \u2014 fictional business brief for demonstration\n\nServices: Harbor Yoga offers beginner yoga classes for adults in the local neighborhood. Introductory classes require advance booking. Each class has a maximum capacity of twelve participants.\n\nAudience: First-time adult students who prefer calm instruction and an approachable environment. Many prospects feel intimidated by unfamiliar poses. They want to understand what to expect before booking.\n\nBrand voice: Warm, clear, welcoming, and practical. Explain the experience without promising health benefits.\n\nRestrictions: Do not advertise discounts or guaranteed health outcomes. Prices are not provided in this brief. Instructor availability for video filming has not been confirmed. No testimonials or previous campaign results have been supplied.\n\nGoal context: We want to increase introductory bookings while staying within our class capacity. Useful experiments could compare explanations of a first visit with introductions to the teaching approach. These are proposed experiments, not proven results.",
+            "score": 0.4031
+          },
+          {
+            "citation_id": "S2",
+            "chunk_id": 2,
+            "source_id": "af140e1bbc244c66bda25687ca7289fd",
+            "source": "operations.txt",
+            "location": "Text",
+            "text": "Operations handbook: expense reimbursement requests require an invoice and a manager signature. Submit invoices by the last business day each month. This handbook does not contain audience research or class descriptions.",
+            "score": 0.3025
+          }
+        ]
+      },
+      "prompt_version": "rag-v3",
+      "raw_attempts": [
+        "{\n  \"status\": \"ready\",\n  \"conflicts\": [],\n  \"ideas\": [\n    {\n      \"title\": \"Compare first visit explanations with teaching approach introductions\",\n      \"rationale\": \"The business goal is to increase introductory bookings while staying within class capacity. The current results show Instagram leads are higher than Facebook leads, but both channels have low conversion rates. The brief suggests experiments comparing explanations of a first visit with introductions to the teaching approach to address prospect intimidation.\",\n      \"audience\": \"First-time adult students who prefer calm instruction and an approachable environment. Many prospects feel intimidated by unfamiliar poses and want to understand what to expect before booking.\",\n      \"supporting_facts\": [\n        {\n          \"claim\": \"The business aims to increase introductory bookings without exceeding class capacity\",\n          \"citation_id\": \"S1\",\n          \"quote\": \"We want to increase introductory bookings while staying within our class capacity.\"\n        },\n        {\n          \"claim\": \"Prospects feel intimidated by unfamiliar poses and need clarity on expectations\",\n          \"citation_id\": \"S1\",\n          \"quote\": \"Many prospects feel intimidated by unfamiliar poses. They want to understand what to expect before booking.\"\n        }\n      ],\n      \"proposed_actions\": [\n        \"Run A/B test on Instagram ads comparing two ad variants: one explaining the first visit experience (e.g., 'Your first class: 15-minute intro session with a friendly instructor') vs. one introducing the teaching approach (e.g., 'How we guide you through poses safely')\",\n        \"Track conversion rates for each variant to measure which explanation reduces intimidation and increases bookings\",\n        \"Ensure ad variants comply with brand voice: warm, clear, welcoming, and practical without promising health benefits\",\n        \"Use Instagram's A/B testing feature to run the test within the 2026-12-20 deadline\"\n      ],\n      \"assumptions\": [\n        \"Instagram's A/B testing feature is available for the business\",\n        \"The teaching approach explanation will be more effective than the first visit explanation for reducing intimidation\",\n        \"The business has sufficient class capacity to accommodate increased bookings without exceeding twelve participants per class\"\n      ],\n      \"success_metrics\": [\n        \"Higher conversion rate from Instagram ads (leads to class bookings) compared to current baseline\",\n        \"Increased number of first-time students booking introductory classes without feeling intimidated\",\n        \"Maintaining class capacity at twelve participants per class\"\n      ],\n      \"risks\": [\n        \"Ad variants may not significantly impact booking rates due to low conversion rates in current results\",\n        \"Instructor availability for video filming may limit ad production\",\n        \"The business may not have enough class capacity to handle increased bookings\"\n      ]\n    }\n  ],\n  \"missing_information\": []\n}"
+      ],
+      "total_latency_ms": 12045,
+      "review": {
+        "quality_1_to_10": null,
+        "notes": "Pending manual review; schema/citation validation is not a factual grade."
+      }
+    }
+  ],
+  "models": {
+    "models": [
+      {
+        "name": "embeddinggemma:latest",
+        "model": "embeddinggemma:latest",
+        "modified_at": "2026-11-13T13:39:18.044227374-06:00",
+        "size": 621875917,
+        "digest": "85462619ee721b466c5927d109d4cb765861907d5417b9109caebc4e614679f1",
+        "details": {
+          "parent_model": "embeddinggemma:300m-bf16",
+          "format": "gguf",
+          "family": "gemma3",
+          "families": [
+            "gemma3"
+          ],
+          "parameter_size": "307.58M",
+          "quantization_level": "BF16",
+          "context_length": 2048,
+          "embedding_length": 768
+        },
+        "capabilities": [
+          "embedding"
+        ]
+      },
+      {
+        "name": "qwen2.5:0.5b",
+        "model": "qwen2.5:0.5b",
+        "modified_at": "2026-10-15T09:58:56.597146915-05:00",
+        "size": 397821319,
+        "digest": "a8b0c51577010a279d933d14c2a8ab4b268079d44c5c8830c0a93900f1827c67",
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "qwen2",
+          "families": [
+            "qwen2"
+          ],
+          "parameter_size": "494.03M",
+          "quantization_level": "Q4_K_M",
+          "context_length": 32768,
+          "embedding_length": 896
+        },
+        "capabilities": [
+          "completion",
+          "tools"
+        ]
+      },
+      {
+        "name": "qwen3:1.7b",
+        "model": "qwen3:1.7b",
+        "modified_at": "2026-10-08T10:32:09.811955208-05:00",
+        "size": 1359293444,
+        "digest": "8f68893c685c3ddff2aa3fffce2aa60a30bb2da65ca488b61fff134a4d1730e7",
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "qwen3",
+          "families": [
+            "qwen3"
+          ],
+          "parameter_size": "2.0B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 40960,
+          "embedding_length": 2048
+        },
+        "capabilities": [
+          "completion",
+          "tools",
+          "thinking"
+        ]
+      },
+      {
+        "name": "qwen3:4b",
+        "model": "qwen3:4b",
+        "modified_at": "2026-09-15T21:32:45.439502899-05:00",
+        "size": 2497293931,
+        "digest": "359d7dd4bcdab3d86b87d73ac27966f4dbb9f5efdfcc75d34a8764a09474fae7",
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "qwen3",
+          "families": [
+            "qwen3"
+          ],
+          "parameter_size": "4.0B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 262144,
+          "embedding_length": 2560
+        },
+        "capabilities": [
+          "completion",
+          "tools",
+          "thinking"
+        ]
+      },
+      {
+        "name": "llama3.1:8b",
+        "model": "llama3.1:8b",
+        "modified_at": "2026-09-15T21:23:13.73689394-05:00",
+        "size": 4920753328,
+        "digest": "46e0c10c039e019119339687c3c1757cc81b9da49709a3b3924863ba87ca666e",
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "llama",
+          "families": [
+            "llama"
+          ],
+          "parameter_size": "8.0B",
+          "quantization_level": "Q4_K_M",
+          "context_length": 131072,
+          "embedding_length": 4096
+        },
+        "capabilities": [
+          "completion",
+          "tools"
+        ]
+      },
+      {
+        "name": "llama3:latest",
+        "model": "llama3:latest",
+        "modified_at": "2026-04-27T23:04:38.289394916-05:00",
+        "size": 4661224676,
+        "digest": "365c0bd3c000a25d28ddbf732fe1c6add414de7275464c4e4d1c3b5fcb5d8ad1",
+        "details": {
+          "parent_model": "",
+          "format": "gguf",
+          "family": "llama",
+          "families": [
+            "llama"
+          ],
+          "parameter_size": "8.0B",
+          "quantization_level": "Q4_0",
+          "context_length": 8192,
+          "embedding_length": 4096
+        },
+        "capabilities": [
+          "completion"
+        ]
+      }
+    ]
+  }
+}

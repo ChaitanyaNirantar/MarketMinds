@@ -1,169 +1,72 @@
-import clsx from 'clsx';
-import { useRef, useState, type DragEvent } from 'react';
-import { AlertTriangle, FileText, Globe, Search, UploadCloud } from 'lucide-react';
-import { Button, Card, PageHeader, ProgressBar, SourceTag, StatusChip } from '../components/ui';
-import { type Passage, type SourceType } from '../data/mock';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { Button, Card, PageHeader, StatusChip } from '../components/ui';
 import { useApp } from '../store/AppStore';
-
-const typeFromName = (n: string): SourceType => (n.endsWith('.pdf') ? 'PDF' : n.endsWith('.docx') ? 'DOCX' : 'TXT');
+import { api } from '../api';
+import type { Evidence, Readiness } from '../rag';
 
 export default function KnowledgeBase() {
-  const { sources, addSource, removeSource, retrySource, notify, passages, searchKnowledge } = useApp();
-  const [dragging, setDragging] = useState(false);
-  const [url, setUrl] = useState('');
-  const [query, setQuery] = useState('What classes do we offer for beginners?');
-  const [results, setResults] = useState<Passage[]>(passages.slice(0, 2));
-  const fileInput = useRef<HTMLInputElement>(null);
-
-  const onDrop = (e: DragEvent) => {
-    e.preventDefault();
-    setDragging(false);
-    Array.from(e.dataTransfer.files).forEach((f) => addSource(f.name, typeFromName(f.name)));
+  const { sources, addSource, removeSource, retrySource } = useApp();
+  const [category, setCategory] = useState('brief');
+  const [error, setError] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [query, setQuery] = useState('What services and audience should this campaign focus on?');
+  const [results, setResults] = useState<Evidence[] | null>(null);
+  const [coverage, setCoverage] = useState<Readiness | null>(null);
+  useEffect(() => {
+    let active = true;
+    api<Readiness>('/knowledge/readiness').then((r) => { if (active) setCoverage(r); }).catch((e: Error) => { if (active) setError(e.message); });
+    return () => { active = false; };
+  }, [sources]);
+  const act = async (fn: () => Promise<unknown>) => {
+    setBusy(true); setError('');
+    try { await fn(); } catch (e) { setError(e instanceof Error ? e.message : 'Operation failed.'); }
+    finally { setBusy(false); }
   };
-
-  const search = async () => {
-    const scored = await searchKnowledge(query);
-    setResults(scored.slice(0, 3));
-  };
-
-  return (
-    <>
-      <PageHeader title="Business Knowledge Base" subtitle="Everything the AI is allowed to say about your business comes from here." />
-
-      <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragging(true);
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={onDrop}
-        className={clsx(
-          'mb-6 rounded-xl border-2 border-dashed p-8 text-center transition',
-          dragging ? 'border-brand-500 bg-brand-50' : 'border-slate-300 bg-white',
-        )}
-      >
-        <UploadCloud className={clsx('mx-auto h-9 w-9', dragging ? 'text-brand-600' : 'text-slate-400')} />
-        <p className="mt-2 text-sm font-medium text-slate-800">Drag and drop files here</p>
-        <p className="text-xs text-slate-500">PDF, DOCX, TXT · up to 20 MB each</p>
-        <div className="mx-auto mt-5 flex max-w-xl flex-wrap items-center justify-center gap-3">
-          <input
-            ref={fileInput}
-            type="file"
-            multiple
-            accept=".pdf,.docx,.txt"
-            className="hidden"
-            onChange={(e) => Array.from(e.target.files ?? []).forEach((f) => addSource(f.name, typeFromName(f.name)))}
-          />
-          <Button icon={<FileText className="h-4 w-4" />} onClick={() => fileInput.current?.click()}>
-            Choose files
-          </Button>
-          <span className="text-xs text-slate-400">or</span>
-          <div className="flex flex-1 gap-2">
-            <input className="input" placeholder="Paste website URL" value={url} onChange={(e) => setUrl(e.target.value)} />
-            <Button
-              icon={<Globe className="h-4 w-4" />}
-              disabled={!url.trim()}
-              onClick={() => {
-                addSource(url.replace(/^https?:\/\//, ''), 'Website');
-                notify('Website import started');
-                setUrl('');
-              }}
-            >
-              Import
-            </Button>
-          </div>
+  return <>
+    <PageHeader title="Business knowledge base" subtitle="Upload business documents for cited strategy ideas. Review the evidence before accepting AI advice." />
+    {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 p-4 text-rose-800">{error}</p>}
+    <Card title="Upload documentation" className="mb-5 p-5">
+      <p className="mb-4 text-sm text-slate-600">Text-based PDF or UTF-8 TXT · up to 10 MB and 100 PDF pages · 20 documents per workspace. Scanned PDFs, DOCX and website imports are not supported yet.</p>
+      <label className="label" htmlFor="category">What does this document cover?</label>
+      <select id="category" className="input mb-4" value={category} onChange={(e) => setCategory(e.target.value)}>
+        <option value="brief">Business brief (services and audience)</option><option value="products">Products / services</option>
+        <option value="audience">Target audience</option><option value="brand">Brand guidelines</option>
+        <option value="constraints">Restrictions / offer terms</option><option value="general">Other information</option>
+      </select>
+      <label className="label" htmlFor="document">Choose a document</label>
+      <input id="document" className="block w-full min-w-0 text-sm" type="file" accept=".pdf,.txt" disabled={busy} onChange={(e) => {
+        const file = e.target.files?.[0]; e.target.value = '';
+        if (file) void act(() => addSource(file, category));
+      }} />
+      <p className="mt-3 text-xs text-slate-500">Files stay on the Django/Ollama machine. Indexing requires the AI worker to be running.</p>
+    </Card>
+    {coverage && <Card title="Context readiness" className="mb-5 p-5">
+      <p className="font-medium">{coverage.ready ? 'Ready to request strategy ideas' : 'More context needed'} · {coverage.indexed_sources} indexed sources</p>
+      <ul className="my-3 list-disc pl-5 text-sm">{coverage.missing.map((m) => <li key={m}>{m}</li>)}</ul>
+      <p className="text-sm text-slate-600">{coverage.note}</p>
+      {coverage.ready && <Link to="/goals/new" className="mt-3 inline-block font-medium text-brand-700">Create a goal →</Link>}
+    </Card>}
+    <Card title={`Your documents (${sources.length})`} className="mb-5 p-5">
+      {!sources.length && <p className="text-slate-600">Upload your first document to get started. Seeded demo passages are not used as your evidence.</p>}
+      <div className="space-y-4">{sources.map((s) => <div key={s.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4">
+        <div><div className="font-medium">{s.name}</div><StatusChip status={s.status} />
+          <p className="mt-1 text-sm text-slate-600">{s.status === 'Processing' ? `Queued / indexing · ${s.progress ?? 0}% embedded` : `${s.chunks ?? 0} searchable chunks`}</p>
+          {s.error && <p className="text-sm text-rose-700">{s.error}</p>}
         </div>
-      </div>
-
-      <Card title={`Sources (${sources.length})`} subtitle="Status updates live while documents are parsed, chunked and embedded." className="mb-6">
-        <table className="w-full">
-          <thead className="bg-slate-50">
-            <tr>
-              <th className="th">Source</th>
-              <th className="th">Type</th>
-              <th className="th">Status</th>
-              <th className="th">Chunks</th>
-              <th className="th text-right">Action</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {sources.map((s) => (
-              <tr key={s.id} className={clsx(s.status === 'Failed' && 'bg-rose-50/40')}>
-                <td className="td">
-                  <div className="flex items-center gap-2 font-medium text-slate-900">
-                    {s.type === 'Website' ? <Globe className="h-4 w-4 text-slate-400" /> : <FileText className="h-4 w-4 text-slate-400" />}
-                    {s.name}
-                  </div>
-                  {s.status === 'Processing' && (
-                    <div className="mt-2 flex items-center gap-2">
-                      <ProgressBar value={s.progress ?? 0} className="max-w-xs" />
-                      <span className="text-xs tabular-nums text-slate-500">{s.progress}% · chunking & embedding</span>
-                    </div>
-                  )}
-                  {s.status === 'Failed' && (
-                    <div className="mt-1 flex items-start gap-1.5 text-xs text-rose-700">
-                      <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {s.error}
-                    </div>
-                  )}
-                </td>
-                <td className="td">{s.type}</td>
-                <td className="td">
-                  <StatusChip status={s.status} />
-                </td>
-                <td className="td tabular-nums">{s.chunks ?? '–'}</td>
-                <td className="td text-right">
-                  {s.status === 'Indexed' && (
-                    <Button size="sm" variant="ghost" onClick={() => removeSource(s.id)}>
-                      Remove
-                    </Button>
-                  )}
-                  {s.status === 'Processing' && (
-                    <Button size="sm" variant="ghost" onClick={() => removeSource(s.id)}>
-                      Cancel
-                    </Button>
-                  )}
-                  {s.status === 'Failed' && (
-                    <Button size="sm" onClick={() => retrySource(s.id)}>
-                      Retry
-                    </Button>
-                  )}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </Card>
-
-      <Card title="Test what the AI will retrieve" subtitle="Type a question a customer might ask and see which passages the AI would use.">
-        <div className="p-5">
-          <form
-            className="flex gap-2"
-            onSubmit={(e) => {
-              e.preventDefault();
-              search();
-            }}
-          >
-            <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
-              <input className="input pl-9" placeholder="e.g. What classes do we offer for beginners?" value={query} onChange={(e) => setQuery(e.target.value)} />
-            </div>
-            <Button variant="primary" type="submit">
-              Search
-            </Button>
-          </form>
-          <div className="mt-4 grid gap-3 md:grid-cols-2">
-            {results.map((r) => (
-              <div key={r.text} className="rounded-lg border border-slate-200 bg-slate-50/60 p-4">
-                <p className="text-sm text-slate-800">{r.text}</p>
-                <div className="mt-3 flex items-center justify-between">
-                  <SourceTag>{r.source}</SourceTag>
-                  <span className="text-[11px] tabular-nums text-slate-400">relevance {r.score.toFixed(2)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className="flex gap-2">
+          {s.status === 'Failed' && <Button disabled={busy} onClick={() => void act(() => retrySource(s.id))}>Retry indexing</Button>}
+          <Button disabled={busy} onClick={() => { if (window.confirm('Remove this document and invalidate saved AI suggestions? Accepted campaign text will remain.')) void act(async () => { await removeSource(s.id); setResults(null); }); }}>Remove</Button>
         </div>
-      </Card>
-    </>
-  );
+      </div>)}</div>
+    </Card>
+    <Card title="Inspect retrieved evidence" className="p-5">
+      <form className="flex gap-3" onSubmit={(e) => { e.preventDefault(); void act(async () => setResults(await api<Evidence[]>('/knowledge/search', { body: { query } }))); }}>
+        <input aria-label="Search your documents" className="input min-w-0 flex-1" maxLength={1500} value={query} onChange={(e) => setQuery(e.target.value)} />
+        <Button type="submit" disabled={busy || !query.trim() || !coverage?.indexed_sources}>Search</Button>
+      </form>
+      <p className="mt-2 text-xs text-slate-500">Similarity ranks passages; it is not a confidence or factual-accuracy score.</p>
+      {results?.map((r) => <article key={r.chunk_id} className="mt-4 rounded-lg border p-4"><p className="whitespace-pre-wrap text-sm">{r.text}</p><p className="mt-2 text-xs text-slate-500">{r.source} · {r.location} · similarity {r.score.toFixed(3)}</p></article>)}
+    </Card>
+  </>;
 }

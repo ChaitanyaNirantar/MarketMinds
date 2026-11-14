@@ -1,5 +1,5 @@
 import clsx from 'clsx';
-import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   BarChart3,
   BookOpen,
@@ -24,7 +24,7 @@ const nav = [
     label: 'Campaigns',
     to: '/campaigns/7',
     icon: Megaphone,
-    match: (p: string) => /^\/campaigns\/\d+(\/(results|recommendation))?$/.test(p),
+    match: (p: string) => /^\/campaigns\/[^/]+(\/(results|recommendation))?$/.test(p),
   },
   { label: 'Content', to: '/campaigns/7/content', icon: CheckCircle2, match: (p: string) => p.endsWith('/content') },
   { label: 'Schedule', to: '/schedule', icon: CalendarClock, match: (p: string) => p.startsWith('/schedule') },
@@ -48,7 +48,7 @@ export function Logo({ className }: { className?: string }) {
 
 export default function Layout() {
   const { pathname } = useLocation();
-  const { toasts, signOut, business, apiError } = useApp();
+  const { toasts, signOut, business, apiError, campaign } = useApp();
   const navigate = useNavigate();
   const initials = (business.name || 'MM')
     .split(/\s+/)
@@ -69,12 +69,12 @@ export default function Layout() {
           <Logo />
         </Link>
         <div className="flex items-center gap-2">
-          <button className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
+          <button className="hidden items-center gap-2 rounded-lg border border-slate-200 sm:flex px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">
             <span className="flex h-6 w-6 items-center justify-center rounded-md bg-slate-900 text-[10px] font-bold text-white">{initials || 'MM'}</span>
             {business.name || 'Your business'}
             <ChevronDown className="h-4 w-4 text-slate-400" />
           </button>
-          <button className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100">
+          <button className="hidden items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-slate-600 sm:flex hover:bg-slate-100">
             <CircleHelp className="h-4 w-4" /> Help
           </button>
           <button
@@ -90,6 +90,10 @@ export default function Layout() {
         </div>
       </header>
 
+      <nav aria-label="Mobile navigation" className="flex gap-4 overflow-x-auto border-b bg-white px-4 py-3 text-sm md:hidden">
+        <Link to="/dashboard">Dashboard</Link><Link to="/knowledge">Documents</Link><Link to="/goals/new">Goals</Link>
+        {campaign && <Link to={`/campaigns/${campaign.id}`}>Campaign</Link>}
+      </nav>
       <div className="flex flex-1">
         <aside className="hidden w-60 shrink-0 border-r border-slate-200 bg-white md:block">
           <div className="sticky top-16 px-3 py-5">
@@ -99,7 +103,7 @@ export default function Layout() {
               return (
                 <NavLink
                   key={label}
-                  to={to}
+                  to={to.startsWith('/campaigns/7') ? (campaign ? to.replace('/campaigns/7', `/campaigns/${campaign.id}`) : '/goals/new') : to}
                   className={clsx(
                     'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition',
                     active ? 'bg-brand-50 text-brand-700' : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900',
@@ -118,7 +122,7 @@ export default function Layout() {
           </div>
         </aside>
 
-        <main className="min-w-0 flex-1 px-6 py-7 lg:px-10">
+        <main className="min-w-0 flex-1 px-4 py-7 sm:px-6 lg:px-10">
           <div className="mx-auto max-w-6xl">
             <Outlet />
           </div>
@@ -146,12 +150,16 @@ const campaignTabs = [
 ];
 
 export function CampaignTabs() {
+  const { campaignId } = useParams();
+  const { campaign } = useApp();
+  const id = campaignId ?? campaign?.id;
+  if (!id) return null;
   return (
     <div className="mb-5 flex gap-1 overflow-x-auto border-b border-slate-200">
       {campaignTabs.map((t) => (
         <NavLink
           key={t.to}
-          to={t.to}
+          to={t.to.replace('/campaigns/7', `/campaigns/${id}`)}
           end
           className={({ isActive }) =>
             clsx(

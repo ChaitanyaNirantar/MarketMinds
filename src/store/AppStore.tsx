@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { api, getToken, setToken } from '../api';
+import type { AIJob } from '../rag';
 import type { ChannelResult, ContentItem, ContentStatus, Passage, Platform, Product, ScheduledPost, Source } from '../data/mock';
 
 export interface GoalDraft {
@@ -58,6 +59,8 @@ interface Toast {
 }
 
 export interface Workspace {
+  campaign: { id: string; name: string; status: string; objective: string; audience: string; dateRange: string } | null;
+  strategy: { title: string; audience: string; messages: string[]; conversionNote: string } | null;
   user: { email: string };
   business: BusinessProfile;
   products: Product[];
@@ -77,6 +80,9 @@ export interface Workspace {
 }
 
 interface AppState {
+  campaign: Workspace['campaign'];
+  strategy: Workspace['strategy'];
+  refresh: () => Promise<Workspace>;
   ready: boolean;
   apiError: string | null;
   signedIn: boolean;
@@ -98,11 +104,10 @@ interface AppState {
   websiteOutcomes: Workspace['websiteOutcomes'];
 
   strategyStatus: StrategyStatus;
-  setStrategyStatus: (s: StrategyStatus) => Promise<void>;
-  generateStrategy: (g: GoalDraft) => Promise<void>;
+  generateStrategy: (g: GoalDraft) => Promise<string>;
 
   sources: Source[];
-  addSource: (name: string, type: Source['type']) => Promise<void>;
+  addSource: (file: File, category: string) => Promise<void>;
   removeSource: (id: string) => Promise<void>;
   retrySource: (id: string) => Promise<void>;
   searchKnowledge: (query: string) => Promise<Passage[]>;
@@ -134,6 +139,8 @@ const Ctx = createContext<AppState | null>(null);
 const emptyAccounts: Record<Platform, boolean> = { LinkedIn: false, Instagram: false, Facebook: false };
 
 export function AppStoreProvider({ children }: { children: ReactNode }) {
+  const [campaign, setCampaign] = useState<Workspace['campaign']>(null);
+  const [strategy, setStrategy] = useState<Workspace['strategy']>(null);
   const [ready, setReady] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
   const [signedIn, setSignedIn] = useState(false);
@@ -162,6 +169,8 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const apply = useCallback((ws: Workspace) => {
+    setCampaign(ws.campaign);
+    setStrategy(ws.strategy);
     setBusiness(ws.business);
     setProducts(ws.products);
     setSources(ws.sources);
@@ -209,7 +218,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
     if (!signedIn || !sources.some((s) => s.status === 'Processing')) return;
     const timer = setInterval(() => {
       refresh().catch(() => undefined);
-    }, 800);
+    }, 2000);
     return () => clearInterval(timer);
   }, [signedIn, sources, refresh]);
 
@@ -231,6 +240,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
 
   const value = useMemo<AppState>(
     () => ({
+      campaign, strategy, refresh,
       ready,
       apiError,
       signedIn,
@@ -272,16 +282,16 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       pastRecommendations,
       websiteOutcomes,
       strategyStatus,
-      setStrategyStatus: async (s) => {
-        if (s === 'Approved') await run(() => api('/goals/approve-strategy', { method: 'POST', body: {} }));
-        else setStrategyStatusState(s);
-      },
       generateStrategy: async (g) => {
-        await run(() => api('/goals/generate-strategy', { body: g }));
+        const ws = await api<Workspace>('/goals', { method: 'PUT', body: g });
+        apply(ws);
+        const job = await api<AIJob>('/ai/generations', { body: { kind: 'strategy', goal_id: ws.goal.id } });
+        return `/goals/${ws.goal.id}/strategy?generation=${job.id}`;
       },
       sources,
-      addSource: async (name, type) => {
-        await api('/sources', { body: { name, type } });
+      addSource: async (file, category) => {
+        const body = new FormData(); body.append('file', file); body.append('category', category);
+        await api('/sources', { body });
         await refresh();
       },
       removeSource: async (id) => {
@@ -332,6 +342,7 @@ export function AppStoreProvider({ children }: { children: ReactNode }) {
       notify,
     }),
     [
+      campaign, strategy,
       ready,
       apiError,
       signedIn,

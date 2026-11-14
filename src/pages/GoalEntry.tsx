@@ -7,7 +7,7 @@ import { useApp, type GoalDraft } from '../store/AppStore';
 
 const outcomes = ['Memberships', 'Class bookings', 'Trial signups', 'Email subscribers', 'Repeat members', 'Program awareness'];
 
-/** Lightweight stand-in for the goal-interpretation agent. */
+/** Convenience parsing only; users confirm these fields before submitting. */
 function interpret(text: string, prev: GoalDraft): GoalDraft {
   const t = text.toLowerCase();
   const targets = [...t.matchAll(/(\d[\d,]*)(\s*days?)?/g)].filter((m) => !m[2]).map((m) => Number(m[1].replace(/,/g, '')));
@@ -27,10 +27,10 @@ function interpret(text: string, prev: GoalDraft): GoalDraft {
             : prev.outcome;
   let deadline = prev.deadline;
   if (days) {
-    const d = new Date('2026-10-26');
+    const d = new Date();
     d.setDate(d.getDate() + Number(days[1]));
     deadline = d.toISOString().slice(0, 10);
-  } else if (/this month/.test(t)) deadline = '2026-11-30';
+  } else if (/this month/.test(t)) { const d = new Date(); deadline = new Date(d.getFullYear(), d.getMonth() + 1, 0, 12).toISOString().slice(0, 10); }
   return { ...prev, text, outcome, target: targets[0] ?? prev.target, deadline };
 }
 
@@ -38,6 +38,7 @@ export default function GoalEntry() {
   const { goal, setGoal, sources, notify, products, previousGoals, generateStrategy } = useApp();
   const [draft, setDraft] = useState<GoalDraft>(goal);
   const [generating, setGenerating] = useState(false);
+  const [error, setError] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => setDraft(goal), [goal]);
@@ -47,21 +48,24 @@ export default function GoalEntry() {
     setDraft((d) => ({ ...d, channels: d.channels.includes(p) ? d.channels.filter((c) => c !== p) : [...d.channels, p] }));
 
   const generate = async () => {
+    setError('');
     setGenerating(true);
     try {
-      await generateStrategy(draft);
-      navigate('/goals/12/strategy');
+      navigate(await generateStrategy(draft));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not queue a strategy.');
     } finally {
       setGenerating(false);
     }
   };
 
-  const indexed = sources.length;
+  const indexed = sources.filter((s) => s.status === 'Indexed').length;
 
   return (
     <>
       <PageHeader title="What do you want to achieve?" subtitle="Describe your goal in plain language. We will turn it into a strategy for you to review." />
 
+      {error && <p role="alert" className="mb-4 rounded-lg bg-rose-50 p-4 text-rose-800">{error}</p>}
       <Card className="p-6">
         <textarea
           rows={3}
@@ -129,7 +133,7 @@ export default function GoalEntry() {
               <Package className="h-3.5 w-3.5" /> {products.length} products
             </span>
             <span className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs">
-              <History className="h-3.5 w-3.5" /> Past campaigns: 1
+              <History className="h-3.5 w-3.5" /> Past goals: {previousGoals.length}
             </span>
             <Link to="/knowledge" className="text-xs font-medium text-brand-700 hover:underline">
               Manage knowledge base
@@ -138,14 +142,14 @@ export default function GoalEntry() {
           <div className="flex gap-2">
             <Button
               onClick={() => {
-                void setGoal(draft).then(() => notify('Draft saved'));
+                void setGoal(draft).then(() => notify('Draft saved')).catch((err: Error) => setError(err.message));
               }}
             >
               Save draft
             </Button>
             <Button variant="primary" size="lg" onClick={generate} disabled={generating || !draft.text.trim()}>
               {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {generating ? 'Generating strategy…' : 'Generate strategy'}
+              {generating ? 'Queueing strategy…' : 'Generate strategy'}
             </Button>
           </div>
         </div>

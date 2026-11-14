@@ -3,18 +3,6 @@ from __future__ import annotations
 from .models import Business, Campaign, Goal
 
 
-def tick_processing(business: Business):
-    for source in business.sources.filter(status="Processing"):
-        progress = min(100, (source.progress or 0) + 8)
-        if progress >= 100:
-            source.status = "Indexed"
-            source.progress = None
-            source.chunks = 12 + (len(source.name) % 20)
-        else:
-            source.progress = progress
-        source.save()
-
-
 def source_json(s):
     return {
         "id": s.public_id,
@@ -24,6 +12,7 @@ def source_json(s):
         "chunks": s.chunks,
         "progress": s.progress,
         "error": s.error or None,
+        "category": s.category,
     }
 
 
@@ -50,7 +39,6 @@ def goal_json(g: Goal | None):
 
 
 def workspace_json(business: Business):
-    tick_processing(business)
     current_goal = business.goals.filter(is_current=True).order_by("-id").first()
     campaign = business.campaigns.filter(is_current=True).first() or business.campaigns.order_by("id").first()
     strategy = getattr(current_goal, "strategy", None) if current_goal else None
@@ -126,11 +114,8 @@ def workspace_json(business: Business):
             {"id": p.public_id, "name": p.name, "description": p.description, "price": p.price}
             for p in business.products.all()
         ],
-        "sources": [source_json(s) for s in business.sources.all()],
-        "passages": [
-            {"text": p.text, "source": p.source_label, "score": p.score}
-            for p in business.passages.all()
-        ],
+        "sources": [source_json(s) for s in business.sources.filter(file__gt="")],
+        "passages": [],
         "goal": goal_json(current_goal),
         "previousGoals": previous,
         "strategyStatus": strategy.status if strategy else "Draft",
